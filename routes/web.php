@@ -32,4 +32,19 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Matches "/api/users
     $router->get('users', 'UserController@allUsers');
+
+    // Matches "/api/property
+    $router->post('property', 'PropertyController@createProperty');
+
+    // Matches "/api/property
+    $router->get('property', 'PropertyController@getProperties');
+
+    // Matches "/api/property/1
+    $router->get('property/{code}', 'PropertyController@getProperty');
+
+    // Matches "/api/property/1
+    $router->put('property/{code}', 'PropertyController@updateProperty');
+
+    // Matches "/api/property/1
+    $router->delete('property/{code}', 'PropertyController@deleteProperty');
 });
