@@ -18,9 +18,9 @@ class CreatePropertiesTable extends Migration
                 // $table->increments('id')->unsigned();
                 $table->char('hash', 32)->index()->charset('ascii')->default(md5(time()));
                 $table->uuid('code')->unique();
-                $table->char('photo', 32)->charset('ascii');
-                $table->json('photos');// must to give charset type to json type
-                $table->char('video', 32)->charset('ascii')->nullable();
+                $table->string('photo', 100)->charset('ascii');
+                $table->json('photos');// must not give charset type to json type
+                $table->string('video', 100)->charset('ascii')->nullable();
                 $table->string('main_title', 80)->charset('utf8');
                 $table->string('side_title', 80)->charset('utf8');
                 $table->string('heading_title', 80)->charset('utf8');

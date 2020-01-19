@@ -26,39 +26,25 @@ class PropertyController extends Controller
      */
     public function createProperty(Request $request)
     {
-        //validate incoming request 
-        $this->validate($request, [
-            'photo' => 'required|string|max:32',
-            'photos' => 'required|json',
-            'video' => 'required|string|max:32',
-            'main_title' => 'required|string|max:80',
-            'side_title' => 'required|string|max:80',
-            'heading_title' => 'required|string|max:80',
-            'description_text' => 'required|string|max:1000',
-            'state' => 'required|string|max:25',
-            'city' => 'required|string|max:35',
-            'suburb' => 'required|string|max:45',
-            'type' => 'required|string|max:25',
-            'interior_surface' => 'required|integer',
-            'exterior_surface' => 'required|integer',
-            'features' => 'required|json',
-            'is_exclusive' => 'boolean',
-            'price' => 'integer',
-            'price_lower_range' => 'integer',
-            'price_upper_range' => 'integer'
-        ]);
+        try{
+            //validate incoming request 
+            self::propertyValidation($request);
 
-        try {
-            // $property = Property::create($request->all());
-            $property = self::assembleProperty($request);
-            
-            $property->save();
+            try {
+                // $property = Property::create($request->all());
+                $property = self::assembleProperty($request);
+                
+                $property->save();
 
-            //return successful response
-            return response()->json(['property' => $property, 'message' => 'CREATED'], 201);
-        } catch (\Exception $e) {
-            //return error message
-            return response()->json(['message' => 'Property Creation Failed!'], 409);
+                //return successful response
+                return response()->json(['property' => $property, 'message' => 'CREATED'], 201);
+            } catch (\Exception $e) {
+                //return error message
+                return response()->json(['message' => 'Property Creation Failed!'], 409);
+            }
+
+        } catch(\Exception $e) {
+            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property data'], 400);
         }
     }
 
@@ -101,23 +87,30 @@ class PropertyController extends Controller
      */
     public function updateProperty($code, Request $request)
     {
-        try {
-            $property = Property::findOrFail($code);
-            
-            try { 
-                $property = self::assembleProperty($request, $property);
 
-                $property->save();
+        try{
+            self::propertyValidation($request);
+
+            try {
+                $property = Property::findOrFail($code);
+                
+                try { 
+                    $property = self::assembleProperty($request, $property);
     
-                return response()->json(['property' => $property], 200);
+                    $property->save();
+        
+                    return response()->json(['property' => $property], 200);
+                } catch (\Exception $e) {
+    
+                    return response()->json(['message' => 'property update failed!'], 500);
+                }
+    
             } catch (\Exception $e) {
-
-                return response()->json(['message' => 'property update failed!'], 500);
+    
+                return response()->json(['message' => 'property not found!'], 404);
             }
-
-        } catch (\Exception $e) {
-
-            return response()->json(['message' => 'property not found!'], 404);
+        } catch(\Exception $e) {
+            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property data'], 400);
         }
 
     }
@@ -174,6 +167,30 @@ class PropertyController extends Controller
         $price_upper_range && ($property->price_upper_range = $price_upper_range);
 
         return $property;
+    }
+
+    private function propertyValidation (Request $request) {
+        //validate incoming request 
+        $validator = $this->validate($request, [
+            'photo' => 'required|string|max:100',
+            'photos' => 'required|json',
+            'video' => 'string|max:100',
+            'main_title' => 'required|string|max:80',
+            'side_title' => 'required|string|max:80',
+            'heading_title' => 'required|string|max:80',
+            'description_text' => 'required|string|max:1000',
+            'state' => 'required|string|max:25',
+            'city' => 'required|string|max:35',
+            'suburb' => 'required|string|max:45',
+            'type' => 'required|string|max:25',
+            'interior_surface' => 'required|integer',
+            'exterior_surface' => 'required|integer',
+            'features' => 'required|json',
+            'is_exclusive' => 'boolean',
+            'price' => 'integer',
+            'price_lower_range' => 'integer',
+            'price_upper_range' => 'integer'
+        ]);
     }
 
 }
