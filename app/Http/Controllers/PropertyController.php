@@ -4,18 +4,20 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use App\Property;
+use App\PropertyGroup;
 
 class PropertyController extends Controller
 {
      /**
-     * Instantiate a new PropertyController instance.
-     *
-     * @return void
-     */
+      * Instantiate a new PropertyController instance.
+      *
+      * @return void
+      */
     public function __construct()
     {
-        $this->middleware('auth');
+        //$this->middleware('auth');
     }
 
         /**
@@ -25,7 +27,9 @@ class PropertyController extends Controller
      * @return Response
      */
     public function createProperty(Request $request)
-    {
+    {   
+        $this->middleware('auth');
+
         try{
             //validate incoming request 
             self::propertyValidation($request);
@@ -60,6 +64,140 @@ class PropertyController extends Controller
     }
 
     /**
+     * Check if property exists.
+     *
+     * @return Response
+     */
+    public function propertyExists($code)
+    {
+        if (Property::where('code', $code)->exists() ) {
+            return response()->json(['message' => 'Property exists'], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+
+    }
+
+    /**
+     * get top selection properties.
+     * 
+     */
+    public function getViewedProperties()
+    {
+        $viewedProperties
+            = self::selectPropertyThumbnailFields()->where('sold', null)->latest('views')->paginate(4);
+
+        if ($viewedProperties) {
+            return response()->json(['properties' => $viewedProperties], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+
+    }
+
+    /**
+     * Get top cities
+     *
+     * @param  Request  $request
+     * @return Response
+     */
+    public function getTopTypes(Request $request)
+    {
+        $paginatedTopTypes = self::topPropertiesPagination('type', 6, 'top_types');
+
+        if ($paginatedTopTypes) {
+            return response()->json(['property_groups' => $paginatedTopTypes], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+    }
+
+    /**
+     * Get top cities
+     *
+     * @param  Request  $request
+     * @return Response
+     */
+    public function getTopStates(Request $request)
+    {
+        $paginatedTopStates = self::topPropertiesPagination('state', 6, 'top_states');
+
+        if ($paginatedTopStates) {
+            return response()->json(['property_groups' => $paginatedTopStates], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+    }
+
+    /**
+     * Get top cities
+     *
+     * @param  Request  $request
+     * @return Response
+     */
+    public function getTopCities(Request $request)
+    {
+        $paginatedTopCities = self::topPropertiesPagination('city', 6, 'top_cities');
+
+        if ($paginatedTopCities) {
+            return response()->json(['property_groups' => $paginatedTopCities], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+    } 
+
+    /**
+     * Check latest acquisition properties.
+     * 
+     */
+    public function getLatestAcquisitions()
+    {
+        $latestAcquisitions
+            = self::selectPropertyThumbnailFields()->where('sold', null)->latest('id')->paginate(4);
+
+        if ($latestAcquisitions) {
+            return response()->json(['properties' => $latestAcquisitions], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+
+    }    
+
+    /**
+     * Check exclusive properties.
+     * 
+     */
+    public function getExclusiveProperties()
+    {
+        $exclusiveProperties
+            = self::selectPropertyThumbnailFields()->where('sold', null)->where('is_exclusive', '!=', null)->paginate(4);
+
+        if ($exclusiveProperties) {
+            return response()->json(['properties' => $exclusiveProperties], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+
+    }
+
+    /**
+     * get top selection properties.
+     * 
+     */
+    public function getTopSelections()
+    {
+        $topSelections
+            = self::selectPropertyThumbnailFields()->where('sold', null)->latest('views')->latest('inquiries')->paginate(3);
+
+        if ($topSelections) {
+            return response()->json(['properties' => $topSelections], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+
+    }
+
+    /**
      * Get one property.
      *
      * @return Response
@@ -68,6 +206,8 @@ class PropertyController extends Controller
     {
         try {
             $property = Property::findOrFail($code);
+
+            self::incrementViews($property);
 
             return response()->json(['property' => $property], 200);
 
@@ -87,6 +227,7 @@ class PropertyController extends Controller
      */
     public function updateProperty($code, Request $request)
     {
+        $this->middleware('auth');
 
         try{
             self::propertyValidation($request);
@@ -122,6 +263,8 @@ class PropertyController extends Controller
      */
     public function deleteProperty($code)
     {
+        $this->middleware('auth');
+
         try {
             $property = Property::findOrFail($code);
 
@@ -139,6 +282,66 @@ class PropertyController extends Controller
             return response()->json(['message' => 'property not found!'], 404);
         }
 
+    }
+
+    private function topPropertiesPagination($column, $perPage, $routeName)
+    {
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $options = ['path' => url('api/' . $routeName)];
+        $topProperties 
+            = Property::select($column . ' AS name', \DB::raw('(sum(views) + sum(inquiries)) AS sumOfRequests'), \DB::raw('count(id) AS count'))
+            ->where('sold', null)
+            ->orderBy('sumOfRequests', 'DESC')
+            ->groupBy($column)
+            ->get();
+
+        $slicedTopProperties = $topProperties->slice(($page - 1) * $perPage, $perPage)->values();
+
+        $slicedTopPropertiesName = $slicedTopProperties->map( 
+            function ($propertyGroup) {
+                return $propertyGroup->name;
+            }
+        );
+
+        $getPhotos = PropertyGroup::select('photo')
+            ->where('class', $column)
+            ->whereIn('name', $slicedTopPropertiesName->toArray());
+
+        if ($getPhotos->count() === $slicedTopPropertiesName->count()) {
+            $getPhotosArray = $getPhotos->get()->toArray();
+            $slicedTopPropertiesArray = $slicedTopProperties->toArray();
+
+            $slicedTopPropertiesPhotoAdded = [];
+
+            foreach ($slicedTopPropertiesArray as $key => $value) {
+                $slicedTopPropertiesPhotoAdded[$key] 
+                    = array_merge($value, $getPhotosArray[$key]);
+            }
+
+            return new LengthAwarePaginator($slicedTopPropertiesPhotoAdded, $topProperties->count(), $perPage, $page, $options);
+        } else {
+            throw new \Exception('Some property classes do not exist in the property groups table');
+        } 
+    }
+
+    private function incrementViews(Property $property) 
+    {
+        $property->views += 1;
+
+        $property->save();
+    }
+
+    private function incrementInquiries(Property $property) 
+    {
+        $property->inquiries += 1;
+
+        $property->save();
+    }
+    
+    private function selectPropertyThumbnailFields()
+    {
+        return Property::select('code', 'photo', 'main_title', 'price', 'price_upper_range', 'price_lower_range', 'suburb', 'city', 'state');
     }
 
     private function assembleProperty(Request $request, Property $property = null) {
@@ -175,9 +378,9 @@ class PropertyController extends Controller
             'photo' => 'required|string|max:100',
             'photos' => 'required|json',
             'video' => 'string|max:100',
-            'main_title' => 'required|string|max:80',
-            'side_title' => 'required|string|max:80',
-            'heading_title' => 'required|string|max:80',
+            'main_title' => 'required|string|max:150',
+            'side_title' => 'required|string|max:150',
+            'heading_title' => 'required|string|max:150',
             'description_text' => 'required|string|max:1000',
             'state' => 'required|string|max:25',
             'city' => 'required|string|max:35',

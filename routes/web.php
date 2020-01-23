@@ -41,10 +41,37 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Matches "/api/property/1
     $router->get('property/{code}', 'PropertyController@getProperty');
+    
+    // Matches "/api/property_exists/1
+    $router->get('property_exists/{code}', 'PropertyController@propertyExists');
+
+    // Matches "/api/top_types
+    $router->get('top_types', 'PropertyController@getTopTypes');
+
+    // Matches "/api/top_cities
+    $router->get('top_states', 'PropertyController@getTopStates');
+
+    // Matches "/api/top_cities
+    $router->get('top_cities', 'PropertyController@getTopCities');
+
+    // Matches "/api/latest_acquisitions
+    $router->get('latest_acquisitions', 'PropertyController@getLatestAcquisitions');
+
+    // Matches "/api/viewed_properties
+    $router->get('viewed_properties', 'PropertyController@getViewedProperties');
+
+    // Matches "/api/top_properties
+    $router->get('top_selections', 'PropertyController@getTopSelections');
+
+    // Matches "/api/exlusive_properties
+    $router->get('exclusive_properties', 'PropertyController@getExclusiveProperties');
 
     // Matches "/api/property/1
     $router->put('property/{code}', 'PropertyController@updateProperty');
 
     // Matches "/api/property/1
     $router->delete('property/{code}', 'PropertyController@deleteProperty');
+
+    // Matches "/api/get_property_groups_list
+    $router->get('get_property_groups_list', 'PropertyGroupController@getPropertyGroupsList');
 });

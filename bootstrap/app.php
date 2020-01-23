@@ -66,7 +66,8 @@ $app->routeMiddleware([
 ]);
 
 $app->middleware([
-    App\Http\Middleware\CorsMiddleware::class
+   // App\Http\Middleware\CorsMiddleware::class
+   \Fruitcake\Cors\HandleCors::class,
  ]);
 
 /*
@@ -79,6 +80,8 @@ $app->middleware([
 | totally optional, so you are not required to uncomment this line.
 |
 */
+
+$app->register(\Fruitcake\Cors\CorsServiceProvider::class);
 
 $app->register(App\Providers\AppServiceProvider::class);
 $app->register(App\Providers\AuthServiceProvider::class);
