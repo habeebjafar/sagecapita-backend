@@ -62,6 +62,8 @@ class PropertyController extends Controller
     public function getProperties(Request $request)
     {
         try {
+            // \DB::enableQueryLog(); // Enable query log
+
             //page is already taken care of
             $perPage = $request->input('per_page') ?? 4;
             $orderByCol = $request->input('order_by_col');
@@ -142,11 +144,49 @@ class PropertyController extends Controller
             }
 
             if ($wherePrice) {
-                foreach ($wherePrice as $wherePriceRow) {
-                    $properties
-                        ->where('price', $wherePriceRow[0], $wherePriceRow[1]);
-                }
+                $properties->where(
+                    function ($query) use ($wherePrice) {
+                        foreach ($wherePrice as $wherePriceRow) {
+                            $query->orWhere(
+                                function ($query) use ($wherePriceRow) {
+                                    $query
+                                        ->whereNotNull('price')
+                                        ->where('price', $wherePriceRow[0], $wherePriceRow[1]);
+                                }
+                            )->orWhere(
+                                function ($query) use ($wherePriceRow) {
+                                    $fields = [
+                                        'price_lower_range', 
+                                        'price_upper_range'
+                                    ];
+
+                                    foreach ($fields as $field) {
+                                        $query
+                                            ->whereNotNull($field);
+                                    }
+
+                                    $query
+                                        ->where(
+                                            function ($query) use ($fields, $wherePriceRow) {
+                                                foreach ($fields as $field) {
+                                                    $query->orWhere(
+                                                        function ($query) use ($wherePriceRow, $field) {
+                                                            $query
+                                                                ->where($field, $wherePriceRow[0], $wherePriceRow[1]);
+                                                        }
+                                                    );
+                                                } 
+                                            }
+                                        );                               
+                                }
+                            );
+                        }
+                    }
+                );
             }
+
+            // $properties->get();
+            // dd(\DB::getQueryLog()); // Show results of log
 
             return response()->json(['properties' =>  $properties->paginate($perPage)], 200);
 
