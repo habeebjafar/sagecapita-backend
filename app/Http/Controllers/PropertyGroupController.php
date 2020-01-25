@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use App\PropertyGroup;
+use App\Property;
 
 class PropertyGroupController extends Controller
 {
@@ -55,23 +57,68 @@ class PropertyGroupController extends Controller
      *
      * @return Response
      */
+    public function getPropertyGroupsListWithCount()
+    {
+        //suburb
+        $suburbGroup = self::_groupPropertySubject('suburb');
+
+        //city
+        $cityGroup = self::_groupPropertySubject('city');
+
+        //state
+        $stateGroup = self::_groupPropertySubject('state');
+
+        //type
+        $typeGroup = self::_groupPropertySubject('type');
+
+        //merge
+        $groupCollection = new Collection();
+        $groupCollection->put('suburb', $suburbGroup);
+        $groupCollection->put('city', $cityGroup);
+        $groupCollection->put('state', $stateGroup);
+        $groupCollection->put('type', $typeGroup);
+
+        //merge group count
+        $groupMergeCount = $groupCollection->map(
+            function ($groupItem, $key) {
+                return $groupItem->mapWithKeys(
+                    function ($item) {
+                        return [$item['name'] => $item['count']];
+                    }
+                );
+            }
+        );
+            
+        return response()->json(['groups_list' => $groupMergeCount], 200);
+        
+    }
+
+    /**
+     * Get all PropertyGroup.
+     *
+     * @return Response
+     */
     public function getPropertyGroupsList()
     {
         $propertyGroups = PropertyGroup::all();
 
         if ($propertyGroups->count()) {
+            $video_count 
+                = Property::select(\DB::raw('count(*) AS count'))
+                ->whereNotNull('video')
+                ->first();
+
             $groupedPropertyGroups = $propertyGroups->mapToGroups(
                 function ($item, $key) {
                     return [$item['class'] => $item['name']];
                 }
             );
 
-            return response()->json(['property_groups_list' => $groupedPropertyGroups], 200);
+            return response()->json(['property_groups_list' => $groupedPropertyGroups, 'video_count' => $video_count->count], 200);
         } else {
             return response()->json(['message' => 'No property group was found!'], 404);
         }
-
-        // return response()->json(['property_groups' =>  PropertyGroup::all()], 200);
+        
     }
 
     /**
@@ -115,7 +162,10 @@ class PropertyGroupController extends Controller
         $name = $request->input('name');
         $class = $request->input('class');
 
-        $propertyGroup = PropertyGroup::where('name', $name)->where('class', $class)->first();
+        $propertyGroup 
+            = PropertyGroup::where('name', $name)
+            ->where('class', $class)
+            ->first();
 
         if ($propertyGroup) {
             return response()->json(['property_group' => $propertyGroup], 200);
@@ -191,6 +241,26 @@ class PropertyGroupController extends Controller
             return response()->json(['message' => 'property group not found!'], 404);
         }
 
+    }
+
+    /**
+     * Group property subject
+     * 
+     * The subject $subject 
+     * 
+     * @param string $subject
+     * 
+     * @return Property
+     */
+
+    private function _groupPropertySubject(string $subject)
+    {
+        return Property
+            ::select($subject . ' AS name', \DB::raw('count(id) AS count'))
+            ->whereNull('sold')
+            ->orderBy('count', 'DESC')
+            ->groupBy('name')
+            ->get();
     }
 
     /**

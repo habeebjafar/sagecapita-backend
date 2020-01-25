@@ -58,6 +58,15 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     $router->get('latest_acquisitions', 'PropertyController@getLatestAcquisitions');
 
     // Matches "/api/viewed_properties
+    $router->get('recently_uploaded', 'PropertyController@getRecentlyUploadedProperties');
+
+    // Matches "/api/sold_properties
+    $router->get('sold_properties', 'PropertyController@getSoldProperties');
+
+    // Matches "/api/most_seen
+    $router->get('most_seen', 'PropertyController@getMostSeenProperties');
+
+    // Matches "/api/viewed_properties
     $router->get('viewed_properties', 'PropertyController@getViewedProperties');
 
     // Matches "/api/top_properties
@@ -74,4 +83,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Matches "/api/get_property_groups_list
     $router->get('get_property_groups_list', 'PropertyGroupController@getPropertyGroupsList');
+
+    // Matches "/api/get_property_groups_list
+    $router->get('get_property_groups_list_with_count', 'PropertyGroupController@getPropertyGroupsListWithCount');
 });

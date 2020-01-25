@@ -54,13 +54,106 @@ class PropertyController extends Controller
 
     /**
      * Get all Property.
+     * 
+     * @param  Request  $request
      *
      * @return Response
      */
-    public function getProperties()
+    public function getProperties(Request $request)
     {
-        // TODO: use the query string to select the search criteria, result lenght, result page
-         return response()->json(['properties' =>  Property::all()], 200);
+        try {
+            //page is already taken care of
+            $perPage = $request->input('per_page') ?? 4;
+            $orderByCol = $request->input('order_by_col');
+            $orderByDir = $request->input('order_by_dir');
+            $whereCity = $request->input('city');
+            $whereState = $request->input('state');
+            $whereSuburb = $request->input('suburb');
+            $whereType = $request->input('type');
+            $wherePrice = null;
+
+            $_price = $request->input('price');
+
+            if ($_price) {
+                $_price_tokens = explode(' ', $_price);
+
+                switch(count($_price_tokens)){
+                case 2:                
+                    $wherePrice = [
+                        [
+                            self::_expandOperator($_price_tokens[0]), 
+                            $_price_tokens[1]
+                        ]
+                    ];
+                    break;
+                case 3:
+                    $doubleOperators 
+                        = self::_doubleExpandOperator($_price_tokens[1]);
+
+                    $wherePrice = [
+                        [
+                            $doubleOperators[0], 
+                            $_price_tokens[0]
+                        ], [
+                            $doubleOperators[1], 
+                            $_price_tokens[2]
+                        ]
+                    ];
+                    break;
+                default:
+                    throw new \Exception('Problem with price input');
+                    break;
+                }
+            }
+
+            $properties = self::selectPropertyThumbnailFields()
+                ->whereNull('sold');
+
+            if ($orderByCol && $orderByDir) {
+                $properties->orderBy($orderByCol, $orderByDir);
+            }
+
+            $whereOrArray = [];
+
+            if ($whereCity) {
+                $whereOrArray['city'] = $whereCity;
+            }
+
+            if ($whereState) {
+                $whereOrArray['state'] = $whereState;
+            }
+
+            if ($whereSuburb) {
+                $whereOrArray['suburb'] = $whereSuburb;
+            }
+
+            if ($whereType) {
+                $whereOrArray['type'] = $whereType;
+            }
+
+            if (count($whereOrArray)) {
+                $properties->where(
+                    function ($query) use ($whereOrArray) {
+                        foreach ($whereOrArray as $field => $fieldValue) {
+                            $query->orWhere($field, $fieldValue);
+                        }
+                    }
+                );
+            }
+
+            if ($wherePrice) {
+                foreach ($wherePrice as $wherePriceRow) {
+                    $properties
+                        ->where('price', $wherePriceRow[0], $wherePriceRow[1]);
+                }
+            }
+
+            return response()->json(['properties' =>  $properties->paginate($perPage)], 200);
+
+        } catch (\Exception $e) {
+            return response()->json(['message' =>  'There\'s is a problem with the input'], 400);
+        }
+         
     }
 
     /**
@@ -79,13 +172,71 @@ class PropertyController extends Controller
     }
 
     /**
-     * get top selection properties.
+     * get sold properties.
+     * 
+     */
+    public function getSoldProperties()
+    {
+        $soldProperties
+            = self::selectPropertyGalleryThumbnailFields()
+            ->whereNotNull('sold')
+            ->latest('id')
+            ->paginate(3);
+
+        if ($soldProperties) {
+            return response()->json(['properties' => $soldProperties], 200);
+        } else {
+            return response()->json(['message' => 'No sold properties yet'], 404);
+        }
+
+    }
+
+    /**
+     * get recently uploaded properties.
+     * 
+     */
+    public function getRecentlyUploadedProperties()
+    {
+        $recentlyUploadedProperties
+            = self::selectPropertyGalleryThumbnailFields()
+            ->whereNull('sold')
+            ->latest('id')
+            ->paginate(3);
+
+        if ($recentlyUploadedProperties) {
+            return response()->json(['properties' => $recentlyUploadedProperties], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+
+    }
+
+    /**
+     * get most seen properties.
+     * 
+     */
+    public function getMostSeenProperties()
+    {
+        $mostSeenProperties
+            = self::selectPropertyGalleryThumbnailFields()->whereNull('sold')->latest('views')->paginate(3);
+
+        if ($mostSeenProperties) {
+            return response()->json(['properties' => $mostSeenProperties], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+
+    }
+
+    /**
+     * get viewed properties.
      * 
      */
     public function getViewedProperties()
     {
         $viewedProperties
-            = self::selectPropertyThumbnailFields()->where('sold', null)->latest('views')->paginate(4);
+            = self::selectPropertyThumbnailFields()->whereNull('sold')
+            ->latest('views')->paginate(4);
 
         if ($viewedProperties) {
             return response()->json(['properties' => $viewedProperties], 200);
@@ -153,7 +304,7 @@ class PropertyController extends Controller
     public function getLatestAcquisitions()
     {
         $latestAcquisitions
-            = self::selectPropertyThumbnailFields()->where('sold', null)->latest('id')->paginate(4);
+            = self::selectPropertyThumbnailFields()->whereNull('sold')->latest('id')->paginate(4);
 
         if ($latestAcquisitions) {
             return response()->json(['properties' => $latestAcquisitions], 200);
@@ -170,7 +321,7 @@ class PropertyController extends Controller
     public function getExclusiveProperties()
     {
         $exclusiveProperties
-            = self::selectPropertyThumbnailFields()->where('sold', null)->where('is_exclusive', '!=', null)->paginate(4);
+            = self::selectPropertyThumbnailFields()->whereNull('sold')->where('is_exclusive', '!=', null)->paginate(4);
 
         if ($exclusiveProperties) {
             return response()->json(['properties' => $exclusiveProperties], 200);
@@ -187,7 +338,8 @@ class PropertyController extends Controller
     public function getTopSelections()
     {
         $topSelections
-            = self::selectPropertyThumbnailFields()->where('sold', null)->latest('views')->latest('inquiries')->paginate(3);
+            = self::selectPropertyThumbnailFields()->whereNull('sold')
+            ->latest('views')->latest('inquiries')->paginate(3);
 
         if ($topSelections) {
             return response()->json(['properties' => $topSelections], 200);
@@ -218,7 +370,7 @@ class PropertyController extends Controller
 
     }
 
-     /**
+    /**
      * Update property.
      *
      * @param  Request  $request
@@ -256,7 +408,7 @@ class PropertyController extends Controller
 
     }
 
-     /**
+    /**
      * Get one property.
      *
      * @return Response
@@ -284,6 +436,39 @@ class PropertyController extends Controller
 
     }
 
+    private function _expandOperator($operator)
+    {
+        switch($operator) {
+            case 'LT':
+                return '<';
+            case 'LTE':
+                return '<=';
+            case 'GT':
+                return '>';
+            case 'GTE':
+                return '>=';
+            case 'EQ':
+                return '=';
+            case 'NEQ':
+                return '!=';
+            default:
+                throw new \Exception('Unknown operator');
+        }
+    }
+
+    private function _doubleExpandOperator($operator)
+    {
+        switch($operator) {
+            case 'GTE':
+                return ['>', '<='];
+            case 'GT':
+                return ['>', '<'];
+            default:
+                throw new \Exception('Unknown doubleable operator');
+            
+        }
+    }
+
     private function topPropertiesPagination($column, $perPage, $routeName)
     {
 
@@ -291,12 +476,14 @@ class PropertyController extends Controller
         $options = ['path' => url('api/' . $routeName)];
         $topProperties 
             = Property::select($column . ' AS name', \DB::raw('(sum(views) + sum(inquiries)) AS sumOfRequests'), \DB::raw('count(id) AS count'))
-            ->where('sold', null)
+            ->whereNull('sold')
             ->orderBy('sumOfRequests', 'DESC')
-            ->groupBy($column)
+            ->groupBy('name')
             ->get();
 
-        $slicedTopProperties = $topProperties->slice(($page - 1) * $perPage, $perPage)->values();
+        $slicedTopProperties = $topProperties
+            ->slice(($page - 1) * $perPage, $perPage)
+            ->values();
 
         $slicedTopPropertiesName = $slicedTopProperties->map( 
             function ($propertyGroup) {
@@ -338,10 +525,15 @@ class PropertyController extends Controller
 
         $property->save();
     }
+
+    private function selectPropertyGalleryThumbnailFields()
+    {
+        return Property::select('code', 'photo', 'suburb', 'city', 'state', 'views', 'created_at', 'price', 'price_upper_range', 'price_lower_range', 'is_exclusive');
+    }
     
     private function selectPropertyThumbnailFields()
     {
-        return Property::select('code', 'photo', 'main_title', 'price', 'price_upper_range', 'price_lower_range', 'suburb', 'city', 'state');
+        return Property::select('code', 'photo', 'main_title', 'price', 'price_upper_range', 'price_lower_range', 'is_exclusive', 'suburb', 'city', 'state');
     }
 
     private function assembleProperty(Request $request, Property $property = null) {
