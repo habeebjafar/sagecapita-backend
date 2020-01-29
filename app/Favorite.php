@@ -9,11 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
-use App\Traits\UsesUuid;
 
-class Property extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
+class Favorite extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
-    use Authenticatable, Authorizable, UsesUuid, SoftDeletes;
+    use Authenticatable, Authorizable, SoftDeletes;
 
     /**
      * The attributes that should be mutated to dates.
@@ -23,27 +22,12 @@ class Property extends Model implements AuthenticatableContract, AuthorizableCon
     protected $dates = ['deleted_at'];
 
     /**
-     * The attributes that aren't mass assignable.
-     *
-     * @var array
-     */
-    protected $guarded = ['code'];
-
-    public function property($code)
-    {
-        return $this->with($this->with)->findOrFail($code);
-    }
-
-    /**
      * The attributes that are mass assignable.
      *
      * @var array
      */
     protected $fillable = [
-        'photo', 'photos', 'video', 'main_title',
-        'side_title', 'heading_title', 'description_text', 'state', 'city', 'suburb',
-        'type', 'interior_surface', 'exterior_surface', 'features', 'is_exclusive',
-        'price', 'price_lower_range', 'price_upper_range', 'updated_at'
+        'property_id', 'customer_id'
     ];
 
     // /**
@@ -51,9 +35,9 @@ class Property extends Model implements AuthenticatableContract, AuthorizableCon
     //  *
     //  * @var array
     //  */
-    // protected $hidden = [
-    //     'id',
-    // ];
+    protected $hidden = [
+        'id', 'created_at', 'deleted_at', 'updated_at'
+    ];
 
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.

@@ -75,6 +75,9 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     // Matches "/api/exlusive_properties
     $router->get('exclusive_properties', 'PropertyController@getExclusiveProperties');
 
+    // Matches "/api/properties_stats
+    $router->get('properties_stats', 'PropertyController@getPropertiesStats');
+
     // Matches "/api/property/1
     $router->put('property/{code}', 'PropertyController@updateProperty');
 
@@ -86,4 +89,7 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Matches "/api/get_property_groups_list
     $router->get('get_property_groups_list_with_count', 'PropertyGroupController@getPropertyGroupsListWithCount');
+
+    // Matches "/api/total_favorites
+    $router->get('total_favorites', 'FavoriteController@getTotalFavorites');
 });

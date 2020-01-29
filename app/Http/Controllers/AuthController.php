@@ -80,6 +80,15 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        return $this->respondWithToken($token);
+        //send user details
+        $user = Auth::user();
+
+        //update last_login_time, number of logins
+        $userUpdate = User::find($user->id);
+        $userUpdate->last_login = gmdate("Y-m-d H:i:s");
+        $userUpdate->number_of_logins += 1;
+        $userUpdate->save();
+
+        return $this->respondWithTokenAndUser($token, $user);
     }
 }

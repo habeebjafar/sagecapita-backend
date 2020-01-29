@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Property;
 use App\PropertyGroup;
+use App\Favorite;
 
 class PropertyController extends Controller
 {
@@ -20,7 +21,7 @@ class PropertyController extends Controller
         //$this->middleware('auth');
     }
 
-        /**
+    /**
      * Store a new property.
      *
      * @param  Request  $request
@@ -32,7 +33,7 @@ class PropertyController extends Controller
 
         try{
             //validate incoming request 
-            self::propertyValidation($request);
+            self::createPropertyValidation($request);
 
             try {
                 // $property = Property::create($request->all());
@@ -108,11 +109,16 @@ class PropertyController extends Controller
                 }
             }
 
-            $properties = self::selectPropertyThumbnailFields()
+            $properties = self::selectPropertyLargeThumbnailFields()
                 ->whereNull('sold');
 
             if ($orderByCol && $orderByDir) {
-                $properties->orderBy($orderByCol, $orderByDir);
+                if ($orderByCol === 'price') {
+                    $properties
+                        ->orderBy('max_price', $orderByDir);
+                } else {
+                    $properties->orderBy($orderByCol, $orderByDir);
+                }                
             }
 
             $whereOrArray = [];
@@ -209,6 +215,32 @@ class PropertyController extends Controller
             return response()->json(['message' => 'Property not found'], 404);
         }
 
+    }
+
+    /**
+     * Check if property exists.
+     *
+     * @return Response
+     */
+    public function getPropertiesStats()
+    {
+        $this->middleware('auth');
+
+        try {
+            $propertyStats = Property::select(
+                \DB::raw('COUNT(id) AS properties'),
+                \DB::raw('SUM(views) AS views'),
+                \DB::raw('SUM(inquiries) AS requests')
+            )->first();
+
+            $favorites 
+                = Favorite::select(\DB::raw('count(id) AS favorites'))
+                ->first();
+
+            return response()->json(['properties' => $propertyStats->properties, 'views' => $propertyStats->views, 'requests' => $propertyStats->requests, 'favorites' => $favorites->favorites], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Problem getting stats'], 500);
+        }
     }
 
     /**
@@ -422,7 +454,7 @@ class PropertyController extends Controller
         $this->middleware('auth');
 
         try{
-            self::propertyValidation($request);
+            self::updatePropertyValidation($request);
 
             try {
                 $property = Property::findOrFail($code);
@@ -566,6 +598,14 @@ class PropertyController extends Controller
         $property->save();
     }
 
+    private function selectPropertyLargeThumbnailFields()
+    {
+        return Property::select(
+            'code', 'video', 'interior_surface', 'photo', 'main_title', 'price', 'price_upper_range', 'price_lower_range', 'is_exclusive', \DB::raw('CASE WHEN price IS NOT NULL THEN price ELSE price_upper_range END AS max_price'),
+            'city', 'updated_at', 'type'
+        );
+    }
+
     private function selectPropertyGalleryThumbnailFields()
     {
         return Property::select('code', 'photo', 'suburb', 'city', 'state', 'views', 'created_at', 'price', 'price_upper_range', 'price_lower_range', 'is_exclusive');
@@ -578,9 +618,12 @@ class PropertyController extends Controller
 
     private function assembleProperty(Request $request, Property $property = null) {
         $property || ($property = new Property);
-        $property->photo = $request->input('photo');
-        $property->photos = $request->input('photos');
-        $property->video = $request->input('video');
+        $photo = $request->input('photo');
+        $photo && ($property->photo = $photo);
+        $photos = $request->input('photos');
+        $photos && ($property->photos = $request->input('photos'));
+        $video = $request->input('video');
+        $video && ($property->video = $request->input('video'));
         $property->main_title = $request->input('main_title');
         $property->side_title = $request->input('side_title');
         $property->heading_title = $request->input('heading_title');
@@ -604,11 +647,35 @@ class PropertyController extends Controller
         return $property;
     }
 
-    private function propertyValidation (Request $request) {
+    private function createPropertyValidation (Request $request) {
         //validate incoming request 
         $validator = $this->validate($request, [
             'photo' => 'required|string|max:100',
             'photos' => 'required|json',
+            'video' => 'string|max:100',
+            'main_title' => 'required|string|max:150',
+            'side_title' => 'required|string|max:150',
+            'heading_title' => 'required|string|max:150',
+            'description_text' => 'required|string|max:1000',
+            'state' => 'required|string|max:25',
+            'city' => 'required|string|max:35',
+            'suburb' => 'required|string|max:45',
+            'type' => 'required|string|max:25',
+            'interior_surface' => 'required|integer',
+            'exterior_surface' => 'required|integer',
+            'features' => 'required|json',
+            'is_exclusive' => 'boolean',
+            'price' => 'integer',
+            'price_lower_range' => 'integer',
+            'price_upper_range' => 'integer'
+        ]);
+    }
+
+    private function updatePropertyValidation (Request $request) {
+        //validate incoming request 
+        $validator = $this->validate($request, [
+            'photo' => 'string|max:100',
+            'photos' => 'json',
             'video' => 'string|max:100',
             'main_title' => 'required|string|max:150',
             'side_title' => 'required|string|max:150',
