@@ -18,6 +18,8 @@ class CreatePropertiesTable extends Migration
             // $table->increments('id')->unsigned();
             $table->char('hash', 32)->index()->charset('ascii')->default(md5(time()));
             $table->uuid('code')->unique();
+            $table->string('code')->storedAs("CONCAT(CASE WHEN country = 'NG' THEN 'SC1010' ELSE 'SC5010' END, `id`)")->index();
+            $table->string('country', 2)->charset('ascii');
             $table->string('photo', 100)->charset('ascii');
             $table->json('photos');// must not give charset type to json type
             $table->string('video', 100)->charset('ascii')->nullable();

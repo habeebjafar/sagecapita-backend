@@ -89,7 +89,16 @@ $router->group(['prefix' => 'api'], function () use ($router) {
 
     // Matches "/api/get_property_groups_list
     $router->get('get_property_groups_list_with_count', 'PropertyGroupController@getPropertyGroupsListWithCount');
-
+    
     // Matches "/api/total_favorites
     $router->get('total_favorites', 'FavoriteController@getTotalFavorites');
+
+    // Matches "/api/property
+    $router->post('lead', 'LeadController@createLead');
+
+    // Matches "/api/lead
+    $router->get('lead', 'LeadController@getLeads');
+
+    // Matches "/api/message
+    $router->get('message', 'LeadController@getMessages');
 });

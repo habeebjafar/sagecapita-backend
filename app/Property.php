@@ -9,11 +9,32 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
-use App\Traits\UsesUuid;
+use App\Traits\UsesCode;
 
 class Property extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
-    use Authenticatable, Authorizable, UsesUuid, SoftDeletes;
+    use Authenticatable, Authorizable, UsesCode, SoftDeletes;
+
+    // /**
+    //  * The primary key associated with the table.
+    //  *
+    //  * @var string
+    //  */
+    // protected $primaryKey = 'code';
+
+    // /**
+    //  * Indicates if the IDs are auto-incrementing.
+    //  *
+    //  * @var bool
+    //  */
+    // public $incrementing = false;
+
+    // /**
+    //  * The "type" of the auto-incrementing ID.
+    //  *
+    //  * @var string
+    //  */
+    // protected $keyType = 'string';
 
     /**
      * The attributes that should be mutated to dates.
@@ -40,8 +61,8 @@ class Property extends Model implements AuthenticatableContract, AuthorizableCon
      * @var array
      */
     protected $fillable = [
-        'photo', 'photos', 'video', 'main_title',
-        'side_title', 'heading_title', 'description_text', 'state', 'city', 'suburb',
+        'photo', 'photos', 'video', 'main_title', 'side_title',
+        'heading_title', 'description_text', 'country', 'state', 'city', 'suburb',
         'type', 'interior_surface', 'exterior_surface', 'features', 'is_exclusive',
         'price', 'price_lower_range', 'price_upper_range', 'updated_at'
     ];

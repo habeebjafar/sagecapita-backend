@@ -260,7 +260,7 @@ class FavoriteController extends Controller
         //validate incoming request 
         $validator = $this->validate(
             $request, [
-            'property_ids' => 'required|json',
+            'property_ids' => 'required|array',
             'customer_id' => 'required|integer'
             ]
         );

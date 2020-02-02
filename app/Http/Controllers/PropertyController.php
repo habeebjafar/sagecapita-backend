@@ -11,11 +11,11 @@ use App\Favorite;
 
 class PropertyController extends Controller
 {
-     /**
-      * Instantiate a new PropertyController instance.
-      *
-      * @return void
-      */
+    /**
+     * Instantiate a new PropertyController instance.
+     *
+     * @return void
+     */
     public function __construct()
     {
         //$this->middleware('auth');
@@ -28,17 +28,17 @@ class PropertyController extends Controller
      * @return Response
      */
     public function createProperty(Request $request)
-    {   
+    {
         $this->middleware('auth');
 
-        try{
+        try {
             //validate incoming request 
             self::createPropertyValidation($request);
 
             try {
                 // $property = Property::create($request->all());
                 $property = self::assembleProperty($request);
-                
+
                 $property->save();
 
                 //return successful response
@@ -47,8 +47,7 @@ class PropertyController extends Controller
                 //return error message
                 return response()->json(['message' => 'Property Creation Failed!'], 409);
             }
-
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property data'], 400);
         }
     }
@@ -80,32 +79,32 @@ class PropertyController extends Controller
             if ($_price) {
                 $_price_tokens = explode(' ', $_price);
 
-                switch(count($_price_tokens)){
-                case 2:                
-                    $wherePrice = [
-                        [
-                            self::_expandOperator($_price_tokens[0]), 
-                            $_price_tokens[1]
-                        ]
-                    ];
-                    break;
-                case 3:
-                    $doubleOperators 
-                        = self::_doubleExpandOperator($_price_tokens[1]);
+                switch (count($_price_tokens)) {
+                    case 2:
+                        $wherePrice = [
+                            [
+                                self::_expandOperator($_price_tokens[0]),
+                                $_price_tokens[1]
+                            ]
+                        ];
+                        break;
+                    case 3:
+                        $doubleOperators
+                            = self::_doubleExpandOperator($_price_tokens[1]);
 
-                    $wherePrice = [
-                        [
-                            $doubleOperators[0], 
-                            $_price_tokens[0]
-                        ], [
-                            $doubleOperators[1], 
-                            $_price_tokens[2]
-                        ]
-                    ];
-                    break;
-                default:
-                    throw new \Exception('Problem with price input');
-                    break;
+                        $wherePrice = [
+                            [
+                                $doubleOperators[0],
+                                $_price_tokens[0]
+                            ], [
+                                $doubleOperators[1],
+                                $_price_tokens[2]
+                            ]
+                        ];
+                        break;
+                    default:
+                        throw new \Exception('Problem with price input');
+                        break;
                 }
             }
 
@@ -118,7 +117,7 @@ class PropertyController extends Controller
                         ->orderBy('max_price', $orderByDir);
                 } else {
                     $properties->orderBy($orderByCol, $orderByDir);
-                }                
+                }
             }
 
             $whereOrArray = [];
@@ -162,7 +161,7 @@ class PropertyController extends Controller
                             )->orWhere(
                                 function ($query) use ($wherePriceRow) {
                                     $fields = [
-                                        'price_lower_range', 
+                                        'price_lower_range',
                                         'price_upper_range'
                                     ];
 
@@ -181,9 +180,9 @@ class PropertyController extends Controller
                                                                 ->where($field, $wherePriceRow[0], $wherePriceRow[1]);
                                                         }
                                                     );
-                                                } 
+                                                }
                                             }
-                                        );                               
+                                        );
                                 }
                             );
                         }
@@ -195,11 +194,9 @@ class PropertyController extends Controller
             // dd(\DB::getQueryLog()); // Show results of log
 
             return response()->json(['properties' =>  $properties->paginate($perPage)], 200);
-
         } catch (\Exception $e) {
             return response()->json(['message' =>  'There\'s is a problem with the input'], 400);
         }
-         
     }
 
     /**
@@ -209,12 +206,11 @@ class PropertyController extends Controller
      */
     public function propertyExists($code)
     {
-        if (Property::where('code', $code)->exists() ) {
+        if (Property::where('code', $code)->exists()) {
             return response()->json(['message' => 'Property exists'], 200);
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-
     }
 
     /**
@@ -233,7 +229,7 @@ class PropertyController extends Controller
                 \DB::raw('SUM(inquiries) AS requests')
             )->first();
 
-            $favorites 
+            $favorites
                 = Favorite::select(\DB::raw('count(id) AS favorites'))
                 ->first();
 
@@ -260,7 +256,6 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'No sold properties yet'], 404);
         }
-
     }
 
     /**
@@ -280,7 +275,6 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-
     }
 
     /**
@@ -297,7 +291,6 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-
     }
 
     /**
@@ -315,7 +308,6 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-
     }
 
     /**
@@ -367,7 +359,7 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-    } 
+    }
 
     /**
      * Check latest acquisition properties.
@@ -383,8 +375,7 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-
-    }    
+    }
 
     /**
      * Check exclusive properties.
@@ -400,7 +391,6 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-
     }
 
     /**
@@ -418,7 +408,6 @@ class PropertyController extends Controller
         } else {
             return response()->json(['message' => 'Property not found'], 404);
         }
-
     }
 
     /**
@@ -434,18 +423,18 @@ class PropertyController extends Controller
             self::incrementViews($property);
 
             return response()->json(['property' => $property], 200);
-
         } catch (\Exception $e) {
 
             return response()->json(['message' => 'property not found!'], 404);
         }
-
     }
 
     /**
      * Update property.
+     * 
+     * @param String  $code    - property code
      *
-     * @param  Request  $request
+     * @param Request $request - hyyyyy
      * 
      * @return Response
      */
@@ -453,31 +442,29 @@ class PropertyController extends Controller
     {
         $this->middleware('auth');
 
-        try{
+        try {
             self::updatePropertyValidation($request);
 
             try {
                 $property = Property::findOrFail($code);
-                
-                try { 
+
+                try {
                     $property = self::assembleProperty($request, $property);
-    
+
                     $property->save();
-        
+
                     return response()->json(['property' => $property], 200);
                 } catch (\Exception $e) {
-    
+
                     return response()->json(['message' => 'property update failed!'], 500);
                 }
-    
             } catch (\Exception $e) {
-    
+
                 return response()->json(['message' => 'property not found!'], 404);
             }
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property data'], 400);
         }
-
     }
 
     /**
@@ -492,7 +479,7 @@ class PropertyController extends Controller
         try {
             $property = Property::findOrFail($code);
 
-            try{
+            try {
                 $property->delete();
 
                 return response()->json(['message' => 'property deleted!'], 200);
@@ -500,17 +487,15 @@ class PropertyController extends Controller
 
                 return response()->json(['message' => 'property deletion failed!'], 500);
             }
-
         } catch (\Exception $e) {
 
             return response()->json(['message' => 'property not found!'], 404);
         }
-
     }
 
     private function _expandOperator($operator)
     {
-        switch($operator) {
+        switch ($operator) {
             case 'LT':
                 return '<';
             case 'LTE':
@@ -530,14 +515,13 @@ class PropertyController extends Controller
 
     private function _doubleExpandOperator($operator)
     {
-        switch($operator) {
+        switch ($operator) {
             case 'GTE':
                 return ['>', '<='];
             case 'GT':
                 return ['>', '<'];
             default:
                 throw new \Exception('Unknown doubleable operator');
-            
         }
     }
 
@@ -546,7 +530,7 @@ class PropertyController extends Controller
 
         $page = LengthAwarePaginator::resolveCurrentPage();
         $options = ['path' => url('api/' . $routeName)];
-        $topProperties 
+        $topProperties
             = Property::select($column . ' AS name', \DB::raw('(sum(views) + sum(inquiries)) AS sumOfRequests'), \DB::raw('count(id) AS count'))
             ->whereNull('sold')
             ->orderBy('sumOfRequests', 'DESC')
@@ -557,7 +541,7 @@ class PropertyController extends Controller
             ->slice(($page - 1) * $perPage, $perPage)
             ->values();
 
-        $slicedTopPropertiesName = $slicedTopProperties->map( 
+        $slicedTopPropertiesName = $slicedTopProperties->map(
             function ($propertyGroup) {
                 return $propertyGroup->name;
             }
@@ -574,24 +558,24 @@ class PropertyController extends Controller
             $slicedTopPropertiesPhotoAdded = [];
 
             foreach ($slicedTopPropertiesArray as $key => $value) {
-                $slicedTopPropertiesPhotoAdded[$key] 
+                $slicedTopPropertiesPhotoAdded[$key]
                     = array_merge($value, $getPhotosArray[$key]);
             }
 
             return new LengthAwarePaginator($slicedTopPropertiesPhotoAdded, $topProperties->count(), $perPage, $page, $options);
         } else {
             throw new \Exception('Some property classes do not exist in the property groups table');
-        } 
+        }
     }
 
-    private function incrementViews(Property $property) 
+    private function incrementViews(Property $property)
     {
         $property->views += 1;
 
         $property->save();
     }
 
-    private function incrementInquiries(Property $property) 
+    private function incrementInquiries(Property $property)
     {
         $property->inquiries += 1;
 
@@ -601,8 +585,19 @@ class PropertyController extends Controller
     private function selectPropertyLargeThumbnailFields()
     {
         return Property::select(
-            'code', 'video', 'interior_surface', 'photo', 'main_title', 'price', 'price_upper_range', 'price_lower_range', 'is_exclusive', \DB::raw('CASE WHEN price IS NOT NULL THEN price ELSE price_upper_range END AS max_price'),
-            'city', 'updated_at', 'type'
+            'code',
+            'video',
+            'interior_surface',
+            'photo',
+            'main_title',
+            'price',
+            'price_upper_range',
+            'price_lower_range',
+            'is_exclusive',
+            \DB::raw('CASE WHEN price IS NOT NULL THEN price ELSE price_upper_range END AS max_price'),
+            'city',
+            'updated_at',
+            'type'
         );
     }
 
@@ -610,13 +605,14 @@ class PropertyController extends Controller
     {
         return Property::select('code', 'photo', 'suburb', 'city', 'state', 'views', 'created_at', 'price', 'price_upper_range', 'price_lower_range', 'is_exclusive');
     }
-    
+
     private function selectPropertyThumbnailFields()
     {
         return Property::select('code', 'photo', 'main_title', 'price', 'price_upper_range', 'price_lower_range', 'is_exclusive', 'suburb', 'city', 'state');
     }
 
-    private function assembleProperty(Request $request, Property $property = null) {
+    private function assembleProperty(Request $request, Property $property = null)
+    {
         $property || ($property = new Property);
         $photo = $request->input('photo');
         $photo && ($property->photo = $photo);
@@ -628,6 +624,7 @@ class PropertyController extends Controller
         $property->side_title = $request->input('side_title');
         $property->heading_title = $request->input('heading_title');
         $property->description_text = $request->input('description_text');
+        $property->country = strtoupper($request->input('country'));
         $property->state = $request->input('state');
         $property->city = $request->input('city');
         $property->suburb = $request->input('suburb');
@@ -647,7 +644,8 @@ class PropertyController extends Controller
         return $property;
     }
 
-    private function createPropertyValidation (Request $request) {
+    private function createPropertyValidation(Request $request)
+    {
         //validate incoming request 
         $validator = $this->validate($request, [
             'photo' => 'required|string|max:100',
@@ -657,6 +655,7 @@ class PropertyController extends Controller
             'side_title' => 'required|string|max:150',
             'heading_title' => 'required|string|max:150',
             'description_text' => 'required|string|max:1000',
+            'country' => 'required|string|size:2',
             'state' => 'required|string|max:25',
             'city' => 'required|string|max:35',
             'suburb' => 'required|string|max:45',
@@ -671,7 +670,8 @@ class PropertyController extends Controller
         ]);
     }
 
-    private function updatePropertyValidation (Request $request) {
+    private function updatePropertyValidation(Request $request)
+    {
         //validate incoming request 
         $validator = $this->validate($request, [
             'photo' => 'string|max:100',
@@ -681,6 +681,7 @@ class PropertyController extends Controller
             'side_title' => 'required|string|max:150',
             'heading_title' => 'required|string|max:150',
             'description_text' => 'required|string|max:1000',
+            'country' => 'required|string|size:2',
             'state' => 'required|string|max:25',
             'city' => 'required|string|max:35',
             'suburb' => 'required|string|max:45',
@@ -694,5 +695,4 @@ class PropertyController extends Controller
             'price_upper_range' => 'integer'
         ]);
     }
-
 }

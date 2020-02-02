@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class Favorite extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
+class Lead extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
     use Authenticatable, Authorizable, SoftDeletes;
 
@@ -27,7 +27,10 @@ class Favorite extends Model implements AuthenticatableContract, AuthorizableCon
      * @var array
      */
     protected $fillable = [
-        'property_id', 'customer_id'
+        'first_name', 'last_name', 'email', 'phone', 'country', 'ip_address', 
+        'user_agent', 'referrer_page', 'language', 'os', 'screen_width', 
+        'screen_height', 'screen_availWidth', 'screen_availHeight', 'color_depth', 
+        'pixel_depth'
     ];
 
     /**
