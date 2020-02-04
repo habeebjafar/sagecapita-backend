@@ -304,7 +304,7 @@ class UserController extends Controller
                 'ip_address' => 'ip',
                 'user_agent' => 'string',
                 'referrer_page' => 'string',
-                'lang' => 'string:size:2',
+                'lang' => 'string:size:5',
                 'os' => 'string',
                 'screen_width' => 'integer',
                 'screen_height' => 'integer',
