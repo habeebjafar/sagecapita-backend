@@ -26,12 +26,30 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     // Matches "/api/profile
     $router->get('profile', 'UserController@profile');
 
+    // Matches "/api/users
+    $router->post('users', 'UserController@createUser');
+
     // Matches "/api/users/1 
     //get one user by id
     $router->get('users/{id}', 'UserController@singleUser');
 
     // Matches "/api/users
     $router->get('users', 'UserController@allUsers');
+
+    // Matches "/api/users/1
+    $router->put('users/{id}', 'UserController@updateUser');
+
+    // Matches "/api/users/1
+    $router->put('suspend_user/{id}', 'UserController@suspendUser');
+
+    // Matches "/api/users/1
+    $router->put('unsuspend_user/{id}', 'UserController@unsuspendUser');
+
+    // Matches "/api/users/1
+    $router->put('change_password/{id}', 'UserController@changeUserPassword');
+
+    // Matches "/api/users/1
+    $router->delete('users/{id}', 'UserController@deleteUser');
 
     // Matches "/api/property
     $router->post('property', 'PropertyController@createProperty');
@@ -93,12 +111,33 @@ $router->group(['prefix' => 'api'], function () use ($router) {
     // Matches "/api/total_favorites
     $router->get('total_favorites', 'FavoriteController@getTotalFavorites');
 
-    // Matches "/api/property
+    // Matches "/api/lead
     $router->post('lead', 'LeadController@createLead');
 
     // Matches "/api/lead
     $router->get('lead', 'LeadController@getLeads');
 
+    // Matches "/api/get_lead
+    $router->get('get_lead', 'LeadController@getLead');
+
+    // Matches "/api/lead
+    $router->put('lead', 'LeadController@updateLead');
+
+    // Matches "/api/property
+    $router->delete('lead', 'LeadController@deleteLead');
+
+    // Matches "/api/message/1
+    $router->get('message/{code}', 'MessageController@getMessage');
+
     // Matches "/api/message
-    $router->get('message', 'LeadController@getMessages');
+    $router->get('message', 'MessageController@getMessages');
+
+    // Matches "/api/pending_messages
+    $router->get('pending_messages', 'MessageController@getPendingMessages');
+
+    // Matches "/api/mark_as_pending
+    $router->put('mark_as_pending/{code}', 'MessageController@markAsPending');
+
+    // Matches "/api/mark_as_done
+    $router->put('mark_as_done/{code}', 'MessageController@markAsDone');
 });

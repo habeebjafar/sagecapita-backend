@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use App\Property;
@@ -368,7 +367,8 @@ class PropertyController extends Controller
     public function getLatestAcquisitions()
     {
         $latestAcquisitions
-            = self::selectPropertyThumbnailFields()->whereNull('sold')->latest('id')->paginate(4);
+            = self::selectPropertyThumbnailFields()
+            ->whereNull('sold')->latest('id')->paginate(4);
 
         if ($latestAcquisitions) {
             return response()->json(['properties' => $latestAcquisitions], 200);
@@ -384,7 +384,8 @@ class PropertyController extends Controller
     public function getExclusiveProperties()
     {
         $exclusiveProperties
-            = self::selectPropertyThumbnailFields()->whereNull('sold')->where('is_exclusive', '!=', null)->paginate(4);
+            = self::selectPropertyThumbnailFields()
+            ->whereNull('sold')->where('is_exclusive', '!=', null)->paginate(4);
 
         if ($exclusiveProperties) {
             return response()->json(['properties' => $exclusiveProperties], 200);

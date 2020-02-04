@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use App\Traits\UsesUuid;
 
 class Message extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
-    use Authenticatable, Authorizable, SoftDeletes;
+    use Authenticatable, Authorizable, SoftDeletes, UsesUuid;
 
     /**
      * The attributes that should be mutated to dates.
@@ -22,12 +23,24 @@ class Message extends Model implements AuthenticatableContract, AuthorizableCont
     protected $dates = ['deleted_at'];
 
     /**
+     * The attributes that aren't mass assignable.
+     *
+     * @var array
+     */
+    protected $guarded = ['code'];
+
+    public function message($code)
+    {
+        return $this->with($this->with)->findOrFail($code);
+    }
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array
      */
     protected $fillable = [
-        'lead_id', 'message'
+        'message'
     ];
 
     /**
@@ -36,7 +49,7 @@ class Message extends Model implements AuthenticatableContract, AuthorizableCont
      * @var array
      */
     protected $hidden = [
-        'id', 'created_at', 'deleted_at', 'updated_at'
+        'deleted_at', 'updated_at'
     ];
 
     /**

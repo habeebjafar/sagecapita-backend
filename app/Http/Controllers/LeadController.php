@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use App\Lead;
 use App\Message;
 use App\Property;
@@ -33,7 +31,7 @@ class LeadController extends Controller
 
         try {
             //validate incoming request 
-            self::_leadValidation($request);
+            self::_createLeadValidation($request);
 
             try {
                 \DB::beginTransaction();
@@ -96,40 +94,13 @@ class LeadController extends Controller
     }
 
     /**
-     * Get leads by customer and property .
-     *
-     * @return Response
-     */
-    public function getCustomerAndPropertyLeads(Request $request)
-    {
-        try {
-            self::_customerAndPropertyLeadValidation($request);
-
-            try {
-                $propertyIds = \json_decode($request->input('property_ids'));
-                $customerId = $request->input('customer_id');
-
-                $leadProperties = Lead::select('property_id')
-                    ->where('customer_id', $column)
-                    ->whereIn('property_id', $propertyIds)
-                    ->get();
-
-                return response()->json(['lead_properties' => $leadProperties], 200);
-            } catch (\Exception $e) {
-                return response()->json(['message' => 'Customer Lead Properties Fetch Failed!'], 500);
-            }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the lead data'], 400);
-        }
-    }
-
-    /**
-     * Get all Lead.
+     * Get all Leads.
      *
      * @return Response
      */
     public function getLeads(Request $request)
     {
+        $this->middleware('auth');
         // TODO: use the query string to select the search criteria, result length, result page
 
         $perPage = $request->input('per_page') ?? 8;
@@ -140,7 +111,7 @@ class LeadController extends Controller
         if ($nameContains) {
             $leads->whereRaw(
                 "MATCH(first_name,last_name) AGAINST(? IN BOOLEAN MODE)",
-                [$nameContains]
+                [$nameContains . '*']
             );
         }
 
@@ -156,7 +127,9 @@ class LeadController extends Controller
      */
     public function leadExists(Request $request)
     {
-        if (self::_getLeadByPropertyAndCustomerId($request)->exists()) {
+        $this->middleware('auth');
+
+        if (self::_getLeadByEmailPhoneAndCountry($request)->exists()) {
             return response()->json(['message' => 'Lead exists'], 200);
         } else {
             return response()->json(['message' => 'Lead not found'], 404);
@@ -171,6 +144,8 @@ class LeadController extends Controller
      */
     public function getTotalLeads(Request $request)
     {
+        $this->middleware('auth');
+
         $leads
             = Lead::select(\DB::raw('count(id) AS count'))
             ->first();
@@ -189,12 +164,49 @@ class LeadController extends Controller
      */
     public function getLead(Request $request)
     {
-        $lead = self::_getLeadByPropertyAndCustomerId($request)->first();
+        $this->middleware('auth');
+
+        $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
 
         if ($lead) {
             return response()->json(['lead' => $lead], 200);
         } else {
             return response()->json(['message' => 'lead not found!'], 404);
+        }
+    }
+
+    /**
+     * Store a new lead.
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function updateLead(Request $request)
+    {
+        $this->middleware('auth');
+
+        try {
+            //validate incoming request 
+            self::_updateLeadValidation($request);
+
+            $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
+
+            if ($lead) {
+                try {
+                    $lead = self::_assembleLead($request, $lead);
+
+                    $lead->save();
+
+                    return response()->json(['property' => $lead], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'lead update failed!'], 500);
+                }
+            } else {
+                return response()->json(['message' => 'lead not found!'], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the lead data'], 400);
         }
     }
 
@@ -207,7 +219,7 @@ class LeadController extends Controller
     {
         $this->middleware('auth');
 
-        $lead = self::_getLeadByPropertyAndCustomerId($request)->first();
+        $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
 
         if ($lead) {
             try {
@@ -240,24 +252,24 @@ class LeadController extends Controller
         }
     }
 
-        /**
-     * Lead subject
-     * 
-     * The lead $lead 
-     * 
-     * @param Lead $lead
-     * 
-     * @return void
-     */
+    //     /**
+    //  * Lead subject
+    //  * 
+    //  * The lead $lead 
+    //  * 
+    //  * @param Lead $lead
+    //  * 
+    //  * @return void
+    //  */
 
-    private function _trashedRestore(Lead $lead)
-    {
-        if ($lead->trashed()) {
-            $lead->restore();
-        } else {
-            throw new \Exception('The lead wasnt trashed so, error...');
-        }
-    }
+    // private function _trashedRestore(Lead $lead)
+    // {
+    //     if ($lead->trashed()) {
+    //         $lead->restore();
+    //     } else {
+    //         throw new \Exception('The lead wasnt trashed so, error...');
+    //     }
+    // }
 
     /**
      * Lead subject
@@ -269,13 +281,15 @@ class LeadController extends Controller
      * @return Lead
      */
 
-    private function _getLeadByPropertyAndCustomerId(Request $request)
+    private function _getLeadByEmailPhoneAndCountry(Request $request)
     {
-        $propertyId = $request->input('property_id');
-        $customerId = $request->input('customer_id');
+        $email = $request->input('_email') ?? $request->input('email');
+        $phone = $request->input('_phone') ?? $request->input('phone');
+        $country = $request->input('_country') ?? $request->input('country');
 
-        return Lead::where('property_id', $propertyId)
-            ->where('customer_id', $customerId);
+        return Lead::where('email', $email)
+            ->where('phone', $phone)
+            ->where('country', $country);
     }
 
     /**
@@ -348,7 +362,7 @@ class LeadController extends Controller
      * 
      * @return void
      */
-    private function _leadValidation(Request $request)
+    private function _createLeadValidation(Request $request)
     {
         //validate incoming request 
         $validator = $this->validate(
@@ -362,6 +376,29 @@ class LeadController extends Controller
                 'country' => 'required_with:phone',
                 'language' => 'string:size:2',
                 'privacy_policy_check' => 'accepted'
+            ]
+        );
+    }
+
+        /**
+     * Get one lead.
+     * 
+     * @param Request $request
+     * 
+     * @return void
+     */
+    private function _updateLeadValidation(Request $request)
+    {
+        //validate incoming request 
+        $validator = $this->validate(
+            $request,
+            [
+                'first_name' => 'required|string|max:50',
+                'last_name' => 'required|string|max:60',
+                'email' => 'required|email',
+                'phone' => 'required|phone:country',
+                'country' => 'required_with:phone',
+                'language' => 'string:size:2'
             ]
         );
     }
@@ -396,39 +433,6 @@ class LeadController extends Controller
             ]
         );
     }
-
-    // /**
-    //  * Get one lead.
-    //  * 
-    //  * @param Request $request
-    //  * 
-    //  * @return void
-    //  */
-    // private function _customerAndPropertyLeadValidation(Request $request)
-    // {
-    //     //validate incoming request 
-    //     $validator = $this->validate(
-    //         $request,
-    //         [
-    //             'first_name' => 'required|string|max:50',
-    //             'last_name' => 'required|string|max:60',
-    //             'email' => 'required|email',
-    //             'phone' => 'required|phone:country',
-    //             'country' => 'required_with:phone',
-    //             'ip_address' => 'ip',
-    //             'user_agent' => 'string',
-    //             'referrer_page' => 'string',
-    //             'language' => 'string:size:2',
-    //             'os' => 'string',
-    //             'screen_width' => 'integer',
-    //             'screen_height' => 'integer',
-    //             'screen_availWidth' => 'integer',
-    //             'screen_availHeight' => 'integer',
-    //             'color_depth' => 'integer',
-    //             'pixel_depth' => 'integer',
-    //         ]
-    //     );
-    // }
 
     /**
      * Get create message.

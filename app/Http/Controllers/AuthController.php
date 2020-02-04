@@ -40,7 +40,7 @@ class AuthController extends Controller
             $user->ip_address = $request->input('ip_address');
             $user->user_agent = $request->input('user_agent');
             $user->referrer_page = $request->input('referrer_page');
-            $user->language = $request->input('language');
+            $user->lang = $request->input('lang');
             $user->os = $request->input('os');
             $user->screen_width = $request->input('screen_width');
             $user->screen_height = $request->input('screen_height');

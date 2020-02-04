@@ -2,10 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
-use App\Lead;
 use App\Message;
 
 class MessageController extends Controller
@@ -29,65 +26,6 @@ class MessageController extends Controller
     public function createMessage(Request $request)
     {
         $this->middleware('auth');
-
-        try{
-            //validate incoming request 
-            self::_messageValidation($request);
-
-            try {
-                $message = self::_assembleMessage($request);                
-                $message->save();
-
-                $message = self::_createMessage($request, $message);
-                $message->save();
-
-                //return successful response
-                return response()->json(['message' => $message, 'message' => 'CREATED'], 201);
-            } catch (\Exception $e) {
-                try {
-                    self::_trashedRestore($message);
-
-                    $message = self::_createMessage($request, $message);
-                    $message->save();
-
-                    return response()->json(['message' => $message, 'message' => 'UPDATED'], 200);
-                } catch (\Exception $e) {
-                    //return error message
-                    return response()->json(['message' => 'Message Creation Failed!'], 409);
-                }
-            }
-
-        } catch(\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the message data'], 400);
-        }
-    }
-
-    /**
-     * Get messages by customer and property .
-     *
-     * @return Response
-     */
-    public function getCustomerAndPropertyMessages(Request $request) 
-    {
-        try{
-            self::_customerAndPropertyMessageValidation($request);
-
-            try {
-                $propertyIds = \json_decode($request->input('property_ids'));
-                $customerId = $request->input('customer_id');
-
-                $messageProperties = Message::select('property_id')
-                    ->where('customer_id', $column)
-                    ->whereIn('property_id', $propertyIds)
-                    ->get();
-
-                    return response()->json(['message_properties' => $messageProperties], 200);
-            } catch (\Exception $e) {
-                return response()->json(['message' => 'Customer Message Properties Fetch Failed!'], 500);
-            }
-        } catch(\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the message data'], 400);
-        }
     }
 
     /**
@@ -101,13 +39,17 @@ class MessageController extends Controller
 
         $perPage = $request->input('per_page') ?? 8;
         $nameContains = $request->input('name');
+        $MAX_MESSAGE_LENGTH = 60;
 
-        $messages = Lead::select('first_name', 'last_name', 'phone', 'email', 'country', 'language', \DB::raw('(SELECT message from messages WHERE lead_id = id)'))->orderBy('id', 'DESC');
+        $messages = Message::join('leads', 'messages.lead_id', '=', 'leads.id')
+            ->join('properties', 'messages.property_code', '=', 'properties.code')
+            ->select('messages.code', \DB::raw('(select case when length(messages.message) > '.$MAX_MESSAGE_LENGTH.' then concat(substring(messages.message, 1, '.$MAX_MESSAGE_LENGTH.'), \'...\') else messages.message end) as message'), 'messages.created_at', 'properties.is_exclusive', 'leads.first_name', 'leads.last_name')
+            ->orderBy('messages.id', 'DESC');
 
         if ($nameContains) {
             $messages->whereRaw(
-                "MATCH(first_name,last_name) AGAINST(? IN BOOLEAN MODE)",
-                [$nameContains]
+                "MATCH(leads.first_name,leads.last_name) AGAINST(? IN BOOLEAN MODE)",
+                [$nameContains . '*']
             );
         }
         
@@ -115,71 +57,119 @@ class MessageController extends Controller
     }
 
     /**
-     * Check if message exists.
-     * 
-     * @param Request $request
+     * Get all Message.
      *
      * @return Response
      */
-    public function messageExists(Request $request)
+    public function getMessage(String $code)
     {
-        if (self::_getMessageByPropertyAndCustomerId($request)->exists() ) {
-            return response()->json(['message' => 'Message exists'], 200);
-        } else {
-            return response()->json(['message' => 'Message not found'], 404);
-        }
+        try {
+            $message = Message::join('leads', 'messages.lead_id', '=', 'leads.id')
+                ->join('properties', 'messages.property_code', '=', 'properties.code')
+                ->select('messages.code AS message_code', 'messages.message', 'messages.is_done', 'properties.is_exclusive', 'properties.code AS property_code', 'properties.main_title', 'properties.country AS property_country', 'leads.first_name', 'leads.last_name', 'leads.email', 'leads.phone', 'leads.country AS lead_country')
+                ->findOrFail($code);
 
+            return response()->json(['message' => $message], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'message not found!'], 404);
+        }
     }
 
     /**
-     * Get total messages  .
+     * Get total pending messages  .
      *
-     * @param Request $request
      * @return Response
      */
-    public function getTotalMessages(Request $request)
+    public function getPendingMessages()
     {
+        $this->middleware('auth');
+        
         $messages 
             = Message::select(\DB::raw('count(id) AS count'))
+            ->where('is_done', 0)
+            ->orWhereNull('is_done')
             ->first();
 
         if ($messages) {
-            return response()->json(['messages_count' => $messages->count], 200);
+            return response()->json(['pending_count' => $messages->count], 200);
         } else {
             return response()->json(['message' => 'No messages found!'], 404);
         }
     }
 
     /**
-     * Get one message.
-     *
+     * Mark message as pending.
+     * 
+     * @param String $code - message code
+     * 
      * @return Response
      */
-    public function getMessage(Request $request)
-    {
-        $message = self::_getMessageByPropertyAndCustomerId($request)->first();
-
-        if ($message) {
-            return response()->json(['message' => $message], 200);
-        } else {
-            return response()->json(['message' => 'message not found!'], 404);
-        }
-
-    }
-
-    /**
-     * Get one message.
-     *
-     * @return Response
-     */
-    public function deleteMessage(Request $request)
+    public function markAsPending($code)
     {
         $this->middleware('auth');
 
-        $message = self::_getMessageByPropertyAndCustomerId($request)->first();
+        try {
+            $message = Message::findOrFail($code);
 
-        if ($message) {
-            try{
+            try {
+                $message->is_done = false;
+
+                $message->save();
+
+                return response()->json(['message' => $message], 200);
+            } catch (\Exception $e) {
+                
+                return response()->json(['message' => 'message update failed!'], 500);
+            }
+        } catch (\Exception $e) {
+
+            return response()->json(['message' => 'message not found!'], 404);
+        }
+    }
+
+    /**
+     * Mark message as done.
+     * 
+     * @param String $code - message code
+     * 
+     * @return Response
+     */
+    public function markAsDone($code)
+    {
+        $this->middleware('auth');
+
+        try {
+            $message = Message::findOrFail($code);
+
+            try {
+                $message->is_done = true;
+
+                $message->save();
+
+                return response()->json(['message' => $message], 200);
+            } catch (\Exception $e) {
+
+                return response()->json(['message' => 'message update failed!'], 500);
+            }
+        } catch (\Exception $e) {
+
+            return response()->json(['message' => 'message not found!'], 404);
+        }
+    }
+
+    /**
+     * Get one property.
+     *
+     * @return Response
+     */
+    public function deleteMessage($code)
+    {
+        $this->middleware('auth');
+
+        try {
+            $message = Message::findOrFail($code);
+
+            try {
                 $message->delete();
 
                 return response()->json(['message' => 'message deleted!'], 200);
@@ -187,52 +177,14 @@ class MessageController extends Controller
 
                 return response()->json(['message' => 'message deletion failed!'], 500);
             }
-        } else {
+        } catch (\Exception $e) {
+
             return response()->json(['message' => 'message not found!'], 404);
         }
-
     }
 
     /**
-     * Message subject
-     * 
-     * The message $message 
-     * 
-     * @param Message $message
-     * 
-     * @return void
-     */
-
-    private function _trashedRestore(Message $message) 
-    {
-        if ($message->trashed()) {
-            $message->restore();
-        } else {
-            throw new \Exception('The message wasnt trashed so, error...');
-        }        
-    }
-
-    /**
-     * Message subject
-     * 
-     * The subject $subject 
-     * 
-     * @param string $subject
-     * 
-     * @return Message
-     */
-
-    private function _getMessageByPropertyAndCustomerId(Request $request) 
-    {
-        $propertyId = $request->input('property_id');
-        $customerId = $request->input('customer_id');
-
-        return Message::where('property_id', $propertyId)
-            ->where('customer_id', $customerId);
-    }
-
-    /**
-     * Get one message.
+     * Assemble one message.
      * 
      * @param Request $request
      * 
@@ -240,22 +192,20 @@ class MessageController extends Controller
      * 
      * @return Message $message
      */
-    private function _assembleMessage(Request $request, Message $message = null) 
+    private function _assembleMessage(Request $request, Message $message = null)
     {
         $message || ($message = new Message);
-        $message->first_name = $request->input('first_name');
-        $message->last_name = $request->input('last_name');
-        $message->email = $request->input('email');
-        $message->phone = $request->input('phone');
-        $message->country = $request->input('country');
-        $ip_address = $request->input('ip_address');
-        $ip_address && ($message->ip_address = $ip_address);
+        $message->lead_id = $request->input('lead_id');
+        $message->message = $request->input('message');
+        $property_code = $request->input('property_code');
+        $property_code && ($message->property_code = $property_code);
+        $message->ip_address = self::_getIpAddress();
         $user_agent = $request->input('user_agent');
         $user_agent && ($message->user_agent = $user_agent);
         $referrer_page = $request->input('referrer_page');
         $referrer_page && ($message->referrer_page = $referrer_page);
-        $language = $request->input('language');
-        $language && ($message->language = $language);
+        $lang = $request->input('lang');
+        $lang && ($message->lang = $lang);
         $os = $request->input('os');
         $os && ($message->os = $os);
         $screen_width = $request->input('screen_width');
@@ -275,86 +225,54 @@ class MessageController extends Controller
     }
 
     /**
-     * Get one message.
+     * Get one lead.
      * 
      * @param Request $request
      * 
      * @return void
      */
-    private function _messageValidation(Request $request) 
+    private function _messageValidation(Request $request)
     {
         //validate incoming request 
         $validator = $this->validate(
-            $request, [
-                'first_name' => 'required|string|max:50',
-                'last_name' => 'required|string|max:60',
-                'email' => 'required|email',
-                'phone' => 'required|phone:country',
-                'country' => 'required_with:phone',
+            $request,
+            [
+                'message' => 'required|string',
+                'lead_id' => 'required|integer',
+                'property_code' => 'string',
                 'ip_address' => 'ip',
-                'user_agent'=>'string',
-                'referrer_page'=>'string',
-                'language'=>'string:size:2',
-                'os'=>'string',
-                'screen_width'=>'integer',
-                'screen_height'=>'integer',
-                'screen_availWidth'=>'integer',
-                'screen_availHeight'=>'integer',
-                'color_depth'=>'integer',
-                'pixel_depth'=>'integer',
-
-                'message'=>'string',
+                'user_agent' => 'string',
+                'referrer_page' => 'string',
+                'lang' => 'string:size:2',
+                'os' => 'string',
+                'screen_width' => 'integer',
+                'screen_height' => 'integer',
+                'screen_availWidth' => 'integer',
+                'screen_availHeight' => 'integer',
+                'color_depth' => 'integer',
+                'pixel_depth' => 'integer'
             ]
         );
     }
 
     /**
-     * Get one message.
+     * Get IP Address.
      * 
-     * @param Request $request
-     * 
-     * @return void
+     * @return string
      */
-    private function _customerAndPropertyMessageValidation(Request $request) 
+    private function _getIpAddress()
     {
-        //validate incoming request 
-        $validator = $this->validate(
-            $request, [
-                'first_name' => 'required|string|max:50',
-                'last_name' => 'required|string|max:60',
-                'email' => 'required|email',
-                'phone' => 'required|phone:country',
-                'country' => 'required_with:phone',
-                'ip_address' => 'ip',
-                'user_agent'=>'string',
-                'referrer_page'=>'string',
-                'language'=>'string:size:2',
-                'os'=>'string',
-                'screen_width'=>'integer',
-                'screen_height'=>'integer',
-                'screen_availWidth'=>'integer',
-                'screen_availHeight'=>'integer',
-                'color_depth'=>'integer',
-                'pixel_depth'=>'integer',
-            ]
-        );
-    }
+        foreach (array('HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 'HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED', 'REMOTE_ADDR') as $key) {
+            if (array_key_exists($key, $_SERVER) === true) {
+                foreach (explode(',', $_SERVER[$key]) as $ip) {
+                    $ip = trim($ip); // just to be safe
 
-    /**
-     * Get create message.
-     * 
-     * @param Request $request
-     * @param Message $message
-     * 
-     * @return void
-     */
-    private function _createMessage(Request $request, Message $message) 
-    {
-        $message = new Message;
-        $message->message_id = $message->id;
-        $message->message = $request->input('message');
-
-        return $message;
+                    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
+                        return $ip;
+                    }
+                }
+            }
+        }
     }
 
 }
