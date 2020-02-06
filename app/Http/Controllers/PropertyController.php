@@ -28,8 +28,6 @@ class PropertyController extends Controller
      */
     public function createProperty(Request $request)
     {
-        $this->middleware('auth');
-
         try {
             //validate incoming request 
             self::createPropertyValidation($request);
@@ -219,8 +217,6 @@ class PropertyController extends Controller
      */
     public function getPropertiesStats()
     {
-        $this->middleware('auth');
-
         try {
             $propertyStats = Property::select(
                 \DB::raw('COUNT(id) AS properties'),
@@ -283,7 +279,8 @@ class PropertyController extends Controller
     public function getMostSeenProperties()
     {
         $mostSeenProperties
-            = self::selectPropertyGalleryThumbnailFields()->whereNull('sold')->latest('views')->paginate(3);
+            = self::selectPropertyGalleryThumbnailFields()
+            ->whereNull('sold')->latest('views')->paginate(3);
 
         if ($mostSeenProperties) {
             return response()->json(['properties' => $mostSeenProperties], 200);
@@ -441,8 +438,6 @@ class PropertyController extends Controller
      */
     public function updateProperty($code, Request $request)
     {
-        $this->middleware('auth');
-
         try {
             self::updatePropertyValidation($request);
 
@@ -475,8 +470,6 @@ class PropertyController extends Controller
      */
     public function deleteProperty($code)
     {
-        $this->middleware('auth');
-
         try {
             $property = Property::findOrFail($code);
 
@@ -517,12 +510,12 @@ class PropertyController extends Controller
     private function _doubleExpandOperator($operator)
     {
         switch ($operator) {
-            case 'GTE':
-                return ['>', '<='];
-            case 'GT':
-                return ['>', '<'];
-            default:
-                throw new \Exception('Unknown doubleable operator');
+        case 'GTE':
+            return ['>', '<='];
+        case 'GT':
+            return ['>', '<'];
+        default:
+            throw new \Exception('Unknown doubleable operator');
         }
     }
 

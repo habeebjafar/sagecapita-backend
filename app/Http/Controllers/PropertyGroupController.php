@@ -9,11 +9,11 @@ use App\Property;
 
 class PropertyGroupController extends Controller
 {
-     /**
-      * Instantiate a new PropertyController instance.
-      *
-      * @return void
-      */
+    /**
+     * Instantiate a new PropertyController instance.
+     *
+     * @return void
+     */
     public function __construct()
     {
         //$this->middleware('auth');
@@ -26,17 +26,15 @@ class PropertyGroupController extends Controller
      * @return Response
      */
     public function createPropertyGroup(Request $request)
-    {   
-        $this->middleware('auth');
-
-        try{
+    {
+        try {
             //validate incoming request 
             self::_propertyGroupValidation($request);
 
             try {
                 // $propertyGroup = PropertyGroup::create($request->all());
                 $propertyGroup = self::assemblePropertyGroup($request);
-                
+
                 $propertyGroup->save();
 
                 //return successful response
@@ -45,8 +43,7 @@ class PropertyGroupController extends Controller
                 //return error message
                 return response()->json(['message' => 'Property group Creation Failed!'], 409);
             }
-
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property group data'], 400);
         }
     }
@@ -87,9 +84,8 @@ class PropertyGroupController extends Controller
                 );
             }
         );
-            
+
         return response()->json(['groups_list' => $groupMergeCount], 200);
-        
     }
 
     /**
@@ -102,7 +98,7 @@ class PropertyGroupController extends Controller
         $propertyGroups = PropertyGroup::all();
 
         if ($propertyGroups->count()) {
-            $video_count 
+            $video_count
                 = Property::select(\DB::raw('count(*) AS count'))
                 ->whereNotNull('video')
                 ->first();
@@ -117,7 +113,6 @@ class PropertyGroupController extends Controller
         } else {
             return response()->json(['message' => 'No property group was found!'], 404);
         }
-        
     }
 
     /**
@@ -128,7 +123,7 @@ class PropertyGroupController extends Controller
     public function getPropertyGroups()
     {
         // TODO: use the query string to select the search criteria, result lenght, result page
-         return response()->json(['property_groups' =>  PropertyGroup::all()], 200);
+        return response()->json(['property_groups' =>  PropertyGroup::all()], 200);
     }
 
     /**
@@ -143,12 +138,11 @@ class PropertyGroupController extends Controller
         $name = $request->input('name');
         $class = $request->input('class');
 
-        if (PropertyGroup::where('name', $name)->where('class', $class)->exists() ) {
+        if (PropertyGroup::where('name', $name)->where('class', $class)->exists()) {
             return response()->json(['message' => 'Property group exists'], 200);
         } else {
             return response()->json(['message' => 'Property group not found'], 404);
         }
-
     }
 
     /**
@@ -161,7 +155,7 @@ class PropertyGroupController extends Controller
         $name = $request->input('name');
         $class = $request->input('class');
 
-        $propertyGroup 
+        $propertyGroup
             = PropertyGroup::where('name', $name)
             ->where('class', $class)
             ->first();
@@ -171,7 +165,6 @@ class PropertyGroupController extends Controller
         } else {
             return response()->json(['message' => 'propertyGroup not found!'], 404);
         }
-
     }
 
     /**
@@ -183,9 +176,7 @@ class PropertyGroupController extends Controller
      */
     public function updatePropertyGroup(Request $request)
     {
-        $this->middleware('auth');
-
-        try{
+        try {
             self::_propertyGroupValidation($request);
 
             $name = $request->input('name');
@@ -193,12 +184,12 @@ class PropertyGroupController extends Controller
 
             $propertyGroup = PropertyGroup::where('name', $name)->where('class', $class)->first();
 
-            if ($propertyGroup) {                
-                try { 
+            if ($propertyGroup) {
+                try {
                     $propertyGroup = self::_assembleGroupProperty($request, $propertyGroup);
 
                     $propertyGroup->save();
-        
+
                     return response()->json(['propertyGroup' => $propertyGroup], 200);
                 } catch (\Exception $e) {
 
@@ -210,7 +201,6 @@ class PropertyGroupController extends Controller
         } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the propertyGroup data'], 400);
         }
-
     }
 
     /**
@@ -220,15 +210,13 @@ class PropertyGroupController extends Controller
      */
     public function deleteProperty(Request $request)
     {
-        $this->middleware('auth');
-
         $name = $request->input('name');
         $class = $request->input('class');
 
         $propertyGroup = PropertyGroup::where('name', $name)->where('class', $class)->first();
 
         if ($propertyGroup) {
-            try{
+            try {
                 $propertyGroup->delete();
 
                 return response()->json(['message' => 'property group deleted!'], 200);
@@ -239,7 +227,6 @@ class PropertyGroupController extends Controller
         } else {
             return response()->json(['message' => 'property group not found!'], 404);
         }
-
     }
 
     /**
@@ -271,7 +258,8 @@ class PropertyGroupController extends Controller
      * 
      * @return PropertyGroup $propertyGroup
      */
-    private function _assembleGroupProperty(Request $request, PropertyGroup $propertyGroup = null) {
+    private function _assembleGroupProperty(Request $request, PropertyGroup $propertyGroup = null)
+    {
         $propertyGroup || ($propertyGroup = new PropertyGroup);
         $propertyGroup->photo = $request->input('photo');
         $propertyGroup->photos = $request->input('photos');
@@ -306,30 +294,31 @@ class PropertyGroupController extends Controller
      * 
      * @return void
      */
-    private function _propertyGroupValidation(Request $request) 
+    private function _propertyGroupValidation(Request $request)
     {
         //validate incoming request 
         $validator = $this->validate(
-            $request, [
-            'photo' => 'required|string|max:100',
-            'photos' => 'required|json',
-            'video' => 'string|max:100',
-            'main_title' => 'required|string|max:150',
-            'side_title' => 'required|string|max:150',
-            'heading_title' => 'required|string|max:150',
-            'description_text' => 'required|string|max:1000',
-            'state' => 'required|string|max:25',
-            'city' => 'required|string|max:35',
-            'suburb' => 'required|string|max:45',
-            'type' => 'required|string|max:25',
-            'interior_surface' => 'required|integer',
-            'exterior_surface' => 'required|integer',
-            'features' => 'required|json',
-            'is_exclusive' => 'boolean',
-            'price' => 'integer',
-            'price_lower_range' => 'integer',
-            'price_upper_range' => 'integer'
-        ]);
+            $request,
+            [
+                'photo' => 'required|string|max:100',
+                'photos' => 'required|json',
+                'video' => 'string|max:100',
+                'main_title' => 'required|string|max:150',
+                'side_title' => 'required|string|max:150',
+                'heading_title' => 'required|string|max:150',
+                'description_text' => 'required|string|max:1000',
+                'state' => 'required|string|max:25',
+                'city' => 'required|string|max:35',
+                'suburb' => 'required|string|max:45',
+                'type' => 'required|string|max:25',
+                'interior_surface' => 'required|integer',
+                'exterior_surface' => 'required|integer',
+                'features' => 'required|json',
+                'is_exclusive' => 'boolean',
+                'price' => 'integer',
+                'price_lower_range' => 'integer',
+                'price_upper_range' => 'integer'
+            ]
+        );
     }
-
 }

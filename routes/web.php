@@ -12,7 +12,7 @@
  */
 
 $router->get(
-    '/', 
+    '/',
     function () use ($router) {
         return $router->app->version();
     }
@@ -20,7 +20,7 @@ $router->get(
 
 // API route group
 $router->group(
-    ['prefix' => 'api'], 
+    ['prefix' => 'api'],
     function () use ($router) {
         // Matches "/api/register
         $router->post('register', 'AuthController@register');
@@ -57,14 +57,20 @@ $router->group(
         $router->delete('users/{id}', 'UserController@deleteUser');
 
         // Matches "/api/property
-        $router->post('property', 'PropertyController@createProperty');
+        $router->post(
+            'property',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@createProperty'
+            ]
+        );
 
         // Matches "/api/property
         $router->get('property', 'PropertyController@getProperties');
 
         // Matches "/api/property/1
         $router->get('property/{code}', 'PropertyController@getProperty');
-        
+
         // Matches "/api/property_exists/1
         $router->get('property_exists/{code}', 'PropertyController@propertyExists');
 
@@ -79,13 +85,13 @@ $router->group(
 
         // Matches "/api/latest_acquisitions
         $router->get(
-            'latest_acquisitions', 
+            'latest_acquisitions',
             'PropertyController@getLatestAcquisitions'
         );
 
         // Matches "/api/viewed_properties
         $router->get(
-            'recently_uploaded', 
+            'recently_uploaded',
             'PropertyController@getRecentlyUploadedProperties'
         );
 
@@ -103,62 +109,191 @@ $router->group(
 
         // Matches "/api/exlusive_properties
         $router->get(
-            'exclusive_properties', 
+            'exclusive_properties',
             'PropertyController@getExclusiveProperties'
         );
 
         // Matches "/api/properties_stats
-        $router->get('properties_stats', 'PropertyController@getPropertiesStats');
+        $router->get(
+            'properties_stats',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@getPropertiesStats'
+            ]
+        );
 
         // Matches "/api/property/1
-        $router->put('property/{code}', 'PropertyController@updateProperty');
+        $router->put(
+            'property/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@updateProperty'
+            ]
+        );
 
         // Matches "/api/property/1
-        $router->delete('property/{code}', 'PropertyController@deleteProperty');
+        $router->delete(
+            'property/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@deleteProperty'
+            ]
+        );
 
         // Matches "/api/get_property_groups_list
         $router->get(
-            'get_property_groups_list', 
+            'get_property_groups_list',
             'PropertyGroupController@getPropertyGroupsList'
         );
 
         // Matches "/api/get_property_groups_list
         $router->get(
-            'get_property_groups_list_with_count', 
+            'get_property_groups_list_with_count',
             'PropertyGroupController@getPropertyGroupsListWithCount'
         );
-        
+
         // Matches "/api/total_favorites
-        $router->get('total_favorites', 'FavoriteController@getTotalFavorites');
+        $router->get(
+            'total_favorites',
+            [
+                'middleware' => 'auth',
+                'uses' => 'FavoriteController@getTotalFavorites'
+            ]
+        );
 
         // Matches "/api/lead
-        $router->post('lead', 'LeadController@createLead');
+        $router->post(
+            'lead',
+            [
+                'middleware' => 'auth',
+                'uses' => 'LeadController@createLead'
+            ]
+        );
 
         // Matches "/api/lead
-        $router->get('lead', 'LeadController@getLeads');
+        $router->get(
+            'lead',
+            [
+                'middleware' => 'auth',
+                'uses' => 'LeadController@getLeads'
+            ]
+        );
 
         // Matches "/api/get_lead
-        $router->get('get_lead', 'LeadController@getLead');
+        $router->get(
+            'get_lead',
+            [
+                'middleware' => 'auth',
+                'uses' => 'LeadController@getLead'
+            ]
+        );
 
         // Matches "/api/lead
-        $router->put('lead', 'LeadController@updateLead');
+        $router->put(
+            'lead',
+            [
+                'middleware' => 'auth',
+                'uses' => 'LeadController@updateLead'
+            ]
+        );
 
         // Matches "/api/property
-        $router->delete('lead', 'LeadController@deleteLead');
+        $router->delete(
+            'lead',
+            [
+                'middleware' => 'auth',
+                'uses' => 'LeadController@deleteLead'
+            ]
+        );
 
         // Matches "/api/message/1
-        $router->get('message/{code}', 'MessageController@getMessage');
+        $router->get(
+            'message/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MessageController@getMessage'
+            ]
+        );
 
         // Matches "/api/message
-        $router->get('message', 'MessageController@getMessages');
+        $router->get(
+            'message',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MessageController@getMessages'
+            ]
+        );
 
         // Matches "/api/pending_messages
-        $router->get('pending_messages', 'MessageController@getPendingMessages');
+        $router->get(
+            'pending_messages',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MessageController@getPendingMessages'
+            ]
+        );
 
         // Matches "/api/mark_as_pending
-        $router->put('mark_as_pending/{code}', 'MessageController@markAsPending');
+        $router->put(
+            'mark_as_pending/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MessageController@markAsPending'
+            ]
+        );
 
         // Matches "/api/mark_as_done
-        $router->put('mark_as_done/{code}', 'MessageController@markAsDone');
+        $router->put(
+            'mark_as_done/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MessageController@markAsDone'
+            ]
+        );
+
+        // Matches "/api/news
+        $router->post(
+            'news',
+            [
+                'middleware' => 'auth',
+                'uses' => 'NewsController@createNews'
+            ]
+        );
+
+        // Matches "/api/news
+        $router->get('news', 'NewsController@getNewss');
+
+        // Matches "/api/news/1
+        $router->get(
+            'news/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'NewsController@getNews'
+            ]
+        );
+
+        // Matches "/api/total_news
+        $router->get('total_news', 'NewsController@getTotalNews');
+
+        // Matches "/api/news_years
+        $router->get('news_years', 'NewsController@getNewsYears');
+
+        // Matches "/api/news/1
+        $router->put(
+            'news/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'NewsController@updateNews'
+            ]
+        );
+
+        // Matches "/api/news/1
+        $router->delete(
+            'news/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'NewsController@deleteNews'
+            ]
+        );
     }
 );

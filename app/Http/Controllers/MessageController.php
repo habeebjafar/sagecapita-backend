@@ -7,11 +7,11 @@ use App\Message;
 
 class MessageController extends Controller
 {
-     /**
-      * Instantiate a new MessageController instance.
-      *
-      * @return void
-      */
+    /**
+     * Instantiate a new MessageController instance.
+     *
+     * @return void
+     */
     public function __construct()
     {
         //$this->middleware('auth');
@@ -25,7 +25,7 @@ class MessageController extends Controller
      */
     public function createMessage(Request $request)
     {
-        $this->middleware('auth');
+        // $this->middleware('auth');
     }
 
     /**
@@ -43,7 +43,7 @@ class MessageController extends Controller
 
         $messages = Message::join('leads', 'messages.lead_id', '=', 'leads.id')
             ->join('properties', 'messages.property_code', '=', 'properties.code')
-            ->select('messages.code', \DB::raw('(select case when length(messages.message) > '.$MAX_MESSAGE_LENGTH.' then concat(substring(messages.message, 1, '.$MAX_MESSAGE_LENGTH.'), \'...\') else messages.message end) as message'), 'messages.created_at', 'properties.is_exclusive', 'leads.first_name', 'leads.last_name')
+            ->select('messages.code', \DB::raw('(select case when length(messages.message) > ' . $MAX_MESSAGE_LENGTH . ' then concat(substring(messages.message, 1, ' . $MAX_MESSAGE_LENGTH . '), \'...\') else messages.message end) as message'), 'messages.created_at', 'properties.is_exclusive', 'leads.first_name', 'leads.last_name')
             ->orderBy('messages.id', 'DESC');
 
         if ($nameContains) {
@@ -52,8 +52,8 @@ class MessageController extends Controller
                 [$nameContains . '*']
             );
         }
-        
-         return response()->json(['messages' => $messages->paginate($perPage)], 200);
+
+        return response()->json(['messages' => $messages->paginate($perPage)], 200);
     }
 
     /**
@@ -82,9 +82,7 @@ class MessageController extends Controller
      */
     public function getPendingMessages()
     {
-        $this->middleware('auth');
-        
-        $messages 
+        $messages
             = Message::select(\DB::raw('count(id) AS count'))
             ->where('is_done', 0)
             ->orWhereNull('is_done')
@@ -106,8 +104,6 @@ class MessageController extends Controller
      */
     public function markAsPending($code)
     {
-        $this->middleware('auth');
-
         try {
             $message = Message::findOrFail($code);
 
@@ -118,7 +114,7 @@ class MessageController extends Controller
 
                 return response()->json(['message' => $message], 200);
             } catch (\Exception $e) {
-                
+
                 return response()->json(['message' => 'message update failed!'], 500);
             }
         } catch (\Exception $e) {
@@ -136,8 +132,6 @@ class MessageController extends Controller
      */
     public function markAsDone($code)
     {
-        $this->middleware('auth');
-
         try {
             $message = Message::findOrFail($code);
 
@@ -164,8 +158,6 @@ class MessageController extends Controller
      */
     public function deleteMessage($code)
     {
-        $this->middleware('auth');
-
         try {
             $message = Message::findOrFail($code);
 
@@ -274,5 +266,4 @@ class MessageController extends Controller
             }
         }
     }
-
 }

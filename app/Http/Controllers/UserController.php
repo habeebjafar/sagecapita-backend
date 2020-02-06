@@ -175,7 +175,7 @@ class UserController extends Controller
             $user = User::findOrFail($userId);
 
             try {
-                $user->suspended = false;
+                $user->suspended = null;
                 $user->save();
 
                 return response()->json(['message' => 'user unsuspended!'], 200);

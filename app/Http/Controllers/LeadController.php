@@ -27,8 +27,6 @@ class LeadController extends Controller
      */
     public function createLead(Request $request)
     {
-        // $this->middleware('auth');
-
         try {
             //validate incoming request 
             self::_createLeadValidation($request);
@@ -68,19 +66,19 @@ class LeadController extends Controller
 
                         try {
                             self::_createMessage($request, $lead);
-        
+
                             \DB::commit();
-        
+
                             //return successful response
                             return response()->json(['lead' => $lead, 'message' => 'UPDATED'], 200);
                         } catch (\Exception $e) {
                             $message = json_decode($e->getMessage(), true);
-        
+
                             \DB::rollBack();
-        
+
                             return response()->json($message['result'], $message['status']);
                         }
-                    }                     
+                    }
                 } catch (\Exception $e) {
                     \DB::rollBack();
 
@@ -100,7 +98,7 @@ class LeadController extends Controller
      */
     public function getLeads(Request $request)
     {
-        $this->middleware('auth');
+        // $this->middleware('auth');
         // TODO: use the query string to select the search criteria, result length, result page
 
         $perPage = $request->input('per_page') ?? 8;
@@ -127,8 +125,6 @@ class LeadController extends Controller
      */
     public function leadExists(Request $request)
     {
-        $this->middleware('auth');
-
         if (self::_getLeadByEmailPhoneAndCountry($request)->exists()) {
             return response()->json(['message' => 'Lead exists'], 200);
         } else {
@@ -144,8 +140,6 @@ class LeadController extends Controller
      */
     public function getTotalLeads(Request $request)
     {
-        $this->middleware('auth');
-
         $leads
             = Lead::select(\DB::raw('count(id) AS count'))
             ->first();
@@ -164,8 +158,6 @@ class LeadController extends Controller
      */
     public function getLead(Request $request)
     {
-        $this->middleware('auth');
-
         $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
 
         if ($lead) {
@@ -183,8 +175,6 @@ class LeadController extends Controller
      */
     public function updateLead(Request $request)
     {
-        $this->middleware('auth');
-
         try {
             //validate incoming request 
             self::_updateLeadValidation($request);
@@ -217,8 +207,6 @@ class LeadController extends Controller
      */
     public function deleteLead(Request $request)
     {
-        $this->middleware('auth');
-
         $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
 
         if ($lead) {
@@ -380,7 +368,7 @@ class LeadController extends Controller
         );
     }
 
-        /**
+    /**
      * Get one lead.
      * 
      * @param Request $request

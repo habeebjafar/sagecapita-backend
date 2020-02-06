@@ -2,18 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use App\Favorite;
 
 class FavoriteController extends Controller
 {
-     /**
-      * Instantiate a new FavoriteController instance.
-      *
-      * @return void
-      */
+    /**
+     * Instantiate a new FavoriteController instance.
+     *
+     * @return void
+     */
     public function __construct()
     {
         //$this->middleware('auth');
@@ -26,16 +24,14 @@ class FavoriteController extends Controller
      * @return Response
      */
     public function createFavorite(Request $request)
-    {   
-        $this->middleware('auth');
-
-        try{
+    {
+        try {
             //validate incoming request 
             self::_favoriteValidation($request);
 
             try {
                 $favorite = self::_assembleFavorite($request);
-                
+
                 $favorite->save();
 
                 //return successful response
@@ -50,8 +46,7 @@ class FavoriteController extends Controller
                     return response()->json(['message' => 'Favorite Creation Failed!'], 409);
                 }
             }
-
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the favorite data'], 400);
         }
     }
@@ -61,9 +56,9 @@ class FavoriteController extends Controller
      *
      * @return Response
      */
-    public function getCustomerAndPropertyFavorites(Request $request) 
+    public function getCustomerAndPropertyFavorites(Request $request)
     {
-        try{
+        try {
             self::_customerAndPropertyFavoriteValidation($request);
 
             try {
@@ -75,11 +70,11 @@ class FavoriteController extends Controller
                     ->whereIn('property_id', $propertyIds)
                     ->get();
 
-                    return response()->json(['favorite_properties' => $favoriteProperties], 200);
+                return response()->json(['favorite_properties' => $favoriteProperties], 200);
             } catch (\Exception $e) {
                 return response()->json(['message' => 'Customer Favorite Properties Fetch Failed!'], 500);
             }
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the favorite data'], 400);
         }
     }
@@ -92,7 +87,7 @@ class FavoriteController extends Controller
     public function getFavorites()
     {
         // TODO: use the query string to select the search criteria, result length, result page
-         return response()->json(['favorites' =>  Favorite::all()], 200);
+        return response()->json(['favorites' =>  Favorite::all()], 200);
     }
 
     /**
@@ -104,12 +99,11 @@ class FavoriteController extends Controller
      */
     public function favoriteExists(Request $request)
     {
-        if (self::_getFavoriteByPropertyAndCustomerId($request)->exists() ) {
+        if (self::_getFavoriteByPropertyAndCustomerId($request)->exists()) {
             return response()->json(['message' => 'Favorite exists'], 200);
         } else {
             return response()->json(['message' => 'Favorite not found'], 404);
         }
-
     }
 
     /**
@@ -120,7 +114,7 @@ class FavoriteController extends Controller
      */
     public function getTotalFavorites(Request $request)
     {
-        $favorites 
+        $favorites
             = Favorite::select(\DB::raw('count(id) AS count'))
             ->first();
 
@@ -145,7 +139,6 @@ class FavoriteController extends Controller
         } else {
             return response()->json(['message' => 'favorite not found!'], 404);
         }
-
     }
 
     /**
@@ -155,12 +148,10 @@ class FavoriteController extends Controller
      */
     public function deleteFavorite(Request $request)
     {
-        $this->middleware('auth');
-
         $favorite = self::_getFavoriteByPropertyAndCustomerId($request)->first();
 
         if ($favorite) {
-            try{
+            try {
                 $favorite->delete();
 
                 return response()->json(['message' => 'favorite deleted!'], 200);
@@ -171,7 +162,6 @@ class FavoriteController extends Controller
         } else {
             return response()->json(['message' => 'favorite not found!'], 404);
         }
-
     }
 
     /**
@@ -184,13 +174,13 @@ class FavoriteController extends Controller
      * @return void
      */
 
-    private function _trashedRestore(Favorite $favorite) 
+    private function _trashedRestore(Favorite $favorite)
     {
         if ($favorite->trashed()) {
             $favorite->restore();
         } else {
             throw new \Exception('The favorite wasnt trashed so, error...');
-        }        
+        }
     }
 
     /**
@@ -203,7 +193,7 @@ class FavoriteController extends Controller
      * @return Favorite
      */
 
-    private function _getFavoriteByPropertyAndCustomerId(Request $request) 
+    private function _getFavoriteByPropertyAndCustomerId(Request $request)
     {
         $propertyId = $request->input('property_id');
         $customerId = $request->input('customer_id');
@@ -221,7 +211,7 @@ class FavoriteController extends Controller
      * 
      * @return Favorite $favorite
      */
-    private function _assembleFavorite(Request $request, Favorite $favorite = null) 
+    private function _assembleFavorite(Request $request, Favorite $favorite = null)
     {
         $favorite || ($favorite = new Favorite);
         $favorite->property_id = $request->input('property_id');
@@ -237,13 +227,14 @@ class FavoriteController extends Controller
      * 
      * @return void
      */
-    private function _favoriteValidation(Request $request) 
+    private function _favoriteValidation(Request $request)
     {
         //validate incoming request 
         $validator = $this->validate(
-            $request, [
-            'property_id' => 'required|integer',
-            'customer_id' => 'required|integer'
+            $request,
+            [
+                'property_id' => 'required|integer',
+                'customer_id' => 'required|integer'
             ]
         );
     }
@@ -255,15 +246,15 @@ class FavoriteController extends Controller
      * 
      * @return void
      */
-    private function _customerAndPropertyFavoriteValidation(Request $request) 
+    private function _customerAndPropertyFavoriteValidation(Request $request)
     {
         //validate incoming request 
         $validator = $this->validate(
-            $request, [
-            'property_ids' => 'required|array',
-            'customer_id' => 'required|integer'
+            $request,
+            [
+                'property_ids' => 'required|array',
+                'customer_id' => 'required|integer'
             ]
         );
     }
-
 }
