@@ -7,6 +7,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use App\Property;
 use App\PropertyGroup;
 use App\Favorite;
+use Illuminate\Support\Facades\Auth;
 
 class PropertyController extends Controller
 {
@@ -146,45 +147,59 @@ class PropertyController extends Controller
             }
 
             if ($wherePrice) {
-                $properties->where(
-                    function ($query) use ($wherePrice) {
-                        foreach ($wherePrice as $wherePriceRow) {
-                            $query->orWhere(
-                                function ($query) use ($wherePriceRow) {
-                                    $query
-                                        ->whereNotNull('price')
-                                        ->where('price', $wherePriceRow[0], $wherePriceRow[1]);
-                                }
-                            )->orWhere(
-                                function ($query) use ($wherePriceRow) {
-                                    $fields = [
-                                        'price_lower_range',
-                                        'price_upper_range'
-                                    ];
+                foreach ($wherePrice as $wherePriceRow) {
+                    $properties->whereRaw(
+                        \DB::raw(
+                            '(' .
+                                'CASE WHEN price IS NOT NULL ' .
+                                'THEN price ' . $wherePriceRow[0] . ' ' . $wherePriceRow[1] . ' ' .
+                                'WHEN price_lower_range IS NOT NULL AND price_upper_range IS NOT NULL ' .
+                                'THEN price_lower_range ' . $wherePriceRow[0] . ' ' . $wherePriceRow[1] . ' OR ' .
+                                'price_upper_range ' . $wherePriceRow[0] . ' ' . $wherePriceRow[1] . ' ' .
+                                'END)'
+                        )
+                    );
+                }
 
-                                    foreach ($fields as $field) {
-                                        $query
-                                            ->whereNotNull($field);
-                                    }
+                // $properties->where(
+                //     function ($query) use ($wherePrice) {
+                //         foreach ($wherePrice as $wherePriceRow) {
+                //             $query->orWhere(
+                //                 function ($query) use ($wherePriceRow) {
+                //                     $query
+                //                         ->whereNotNull('price')
+                //                         ->where('price', $wherePriceRow[0], $wherePriceRow[1]);
+                //                 }
+                //             )->orWhere(
+                //                 function ($query) use ($wherePriceRow) {
+                //                     $fields = [
+                //                         'price_lower_range',
+                //                         'price_upper_range'
+                //                     ];
 
-                                    $query
-                                        ->where(
-                                            function ($query) use ($fields, $wherePriceRow) {
-                                                foreach ($fields as $field) {
-                                                    $query->orWhere(
-                                                        function ($query) use ($wherePriceRow, $field) {
-                                                            $query
-                                                                ->where($field, $wherePriceRow[0], $wherePriceRow[1]);
-                                                        }
-                                                    );
-                                                }
-                                            }
-                                        );
-                                }
-                            );
-                        }
-                    }
-                );
+                //                     foreach ($fields as $field) {
+                //                         $query
+                //                             ->whereNotNull($field);
+                //                     }
+
+                //                     $query
+                //                         ->where(
+                //                             function ($query) use ($fields, $wherePriceRow) {
+                //                                 foreach ($fields as $field) {
+                //                                     $query->orWhere(
+                //                                         function ($query) use ($wherePriceRow, $field) {
+                //                                             $query
+                //                                                 ->where($field, $wherePriceRow[0], $wherePriceRow[1]);
+                //                                         }
+                //                                     );
+                //                                 }
+                //                             }
+                //                         );
+                //                 }
+                //             );
+                //         }
+                //     }
+                // );
             }
 
             // $properties->get();
@@ -192,6 +207,149 @@ class PropertyController extends Controller
 
             return response()->json(['properties' =>  $properties->paginate($perPage)], 200);
         } catch (\Exception $e) {
+            echo $e;
+            return response()->json(['message' =>  'There\'s is a problem with the input'], 400);
+        }
+    }
+
+    /**
+     * Get all Favorited Properties.
+     * 
+     * @param  Request  $request
+     *
+     * @return Response
+     */
+    public function getFavorites(Request $request)
+    {
+        try {
+            // \DB::enableQueryLog(); // Enable query log
+
+            //page is already taken care of
+            $perPage = $request->input('per_page') ?? 4;
+            $orderByCol = $request->input('order_by_col');
+            $orderByDir = $request->input('order_by_dir');
+            $whereCity = $request->input('city');
+            $whereState = $request->input('state');
+            $whereSuburb = $request->input('suburb');
+            $whereType = $request->input('type');
+            $wherePrice = null;
+
+            $_price = $request->input('price');
+
+            if ($_price) {
+                $_price_tokens = explode(' ', $_price);
+
+                switch (count($_price_tokens)) {
+                    case 2:
+                        $wherePrice = [
+                            [
+                                self::_expandOperator($_price_tokens[0]),
+                                $_price_tokens[1]
+                            ]
+                        ];
+                        break;
+                    case 3:
+                        $doubleOperators
+                            = self::_doubleExpandOperator($_price_tokens[1]);
+
+                        $wherePrice = [
+                            [
+                                $doubleOperators[0],
+                                $_price_tokens[0]
+                            ], [
+                                $doubleOperators[1],
+                                $_price_tokens[2]
+                            ]
+                        ];
+                        break;
+                    default:
+                        throw new \Exception('Problem with price input');
+                        break;
+                }
+            }
+
+            $customersAuth = Auth::guard('customers');
+
+            $properties =
+                Favorite::join('properties', 'favorites.property_code', '=', 'properties.code')
+                ->select(
+                    'properties.code AS code',
+                    'properties.video AS video',
+                    'properties.interior_surface AS interior_surface',
+                    'properties.photo AS photo',
+                    'properties.main_title AS main_title',
+                    'properties.price AS price',
+                    'properties.price_upper_range AS price_upper_range',
+                    'properties.price_lower_range AS price_lower_range',
+                    'properties.is_exclusive AS is_exclusive',
+                    \DB::raw('CASE WHEN properties.price IS NOT NULL THEN properties.price ELSE properties.price_upper_range END AS max_price'),
+                    'properties.city AS city',
+                    'properties.updated_at AS updated_at',
+                    'properties.type AS type',
+                    \DB::raw('true AS is_favorite')
+                )
+                ->where('customer_id', $customersAuth->user()->id)
+                ->whereNull('sold');
+
+            if ($orderByCol && $orderByDir) {
+                if ($orderByCol === 'price') {
+                    $properties
+                        ->orderBy('max_price', $orderByDir);
+                } else {
+                    $properties->orderBy($orderByCol, $orderByDir);
+                }
+            }
+
+            $whereOrArray = [];
+
+            if ($whereCity) {
+                $whereOrArray['city'] = $whereCity;
+            }
+
+            if ($whereState) {
+                $whereOrArray['state'] = $whereState;
+            }
+
+            if ($whereSuburb) {
+                $whereOrArray['suburb'] = $whereSuburb;
+            }
+
+            if ($whereType) {
+                $whereOrArray['type'] = $whereType;
+            }
+
+            if (count($whereOrArray)) {
+                $properties->where(
+                    function ($query) use ($whereOrArray) {
+                        foreach ($whereOrArray as $field => $fieldValue) {
+                            $query->orWhere($field, $fieldValue);
+                        }
+                    }
+                );
+            }
+
+            if ($wherePrice) {
+                foreach ($wherePrice as $wherePriceRow) {
+                    $properties->whereRaw(
+                        \DB::raw(
+                            '(' .
+                                'CASE WHEN price IS NOT NULL ' .
+                                'THEN price ' . $wherePriceRow[0] . ' ' . $wherePriceRow[1] . ' ' .
+                                'WHEN price_lower_range IS NOT NULL AND price_upper_range IS NOT NULL ' .
+                                'THEN price_lower_range ' . $wherePriceRow[0] . ' ' . $wherePriceRow[1] . ' OR ' .
+                                'price_upper_range ' . $wherePriceRow[0] . ' ' . $wherePriceRow[1] . ' ' .
+                                'END)'
+                        )
+                    );
+                }
+            }
+
+            // $properties->get();
+            // dd(\DB::getQueryLog()); // Show results of log
+
+            return response()->json(['properties' =>  $properties->paginate($perPage)], 200);
+        } catch (\Exception $e) {
+            echo $e;
             return response()->json(['message' =>  'There\'s is a problem with the input'], 400);
         }
     }
@@ -428,6 +586,26 @@ class PropertyController extends Controller
     }
 
     /**
+     * Get total properties  .
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function getTotalProperties(Request $request)
+    {
+        $properties
+            = Property::select(\DB::raw('count(id) AS count'))
+            ->whereNull('sold')
+            ->first();
+
+        if ($properties) {
+            return response()->json(['properties_count' => $properties->count], 200);
+        } else {
+            return response()->json(['message' => 'No properties found!'], 404);
+        }
+    }
+
+    /**
      * Update property.
      * 
      * @param String  $code    - property code
@@ -510,12 +688,12 @@ class PropertyController extends Controller
     private function _doubleExpandOperator($operator)
     {
         switch ($operator) {
-        case 'GTE':
-            return ['>', '<='];
-        case 'GT':
-            return ['>', '<'];
-        default:
-            throw new \Exception('Unknown doubleable operator');
+            case 'GTE':
+                return ['>', '<='];
+            case 'GT':
+                return ['>', '<'];
+            default:
+                throw new \Exception('Unknown doubleable operator');
         }
     }
 

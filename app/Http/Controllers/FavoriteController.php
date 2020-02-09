@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Favorite;
+use Illuminate\Support\Facades\Auth;
 
 class FavoriteController extends Controller
 {
@@ -38,12 +39,21 @@ class FavoriteController extends Controller
                 return response()->json(['favorite' => $favorite, 'message' => 'CREATED'], 201);
             } catch (\Exception $e) {
                 try {
-                    self::_trashedRestore($favorite);
+                    if ($e->getCode() === '23000') {
+                        $favorite = Favorite::withTrashed()
+                            ->where('property_code', $favorite->property_code)
+                            ->where('customer_id', $favorite->customer_id)
+                            ->first();
 
-                    return response()->json(['favorite' => $favorite, 'message' => 'UPDATED'], 200);
+                        self::_restoreIfTrashed($favorite);
+
+                        return response()->json(['favorite' => $favorite, 'message' => 'UPDATED'], 200);
+                    }
+
+                    throw new \Exception($e->getMessage(), $e->getCode());
                 } catch (\Exception $e) {
                     //return error message
-                    return response()->json(['message' => 'Favorite Creation Failed!'], 409);
+                    return response()->json(['message' => 'Favorite Creation Failed!'], 500);
                 }
             }
         } catch (\Exception $e) {
@@ -99,7 +109,7 @@ class FavoriteController extends Controller
      */
     public function favoriteExists(Request $request)
     {
-        if (self::_getFavoriteByPropertyAndCustomerId($request)->exists()) {
+        if (self::_getFavoriteByPropertyCode($request)->exists()) {
             return response()->json(['message' => 'Favorite exists'], 200);
         } else {
             return response()->json(['message' => 'Favorite not found'], 404);
@@ -132,7 +142,7 @@ class FavoriteController extends Controller
      */
     public function getFavorite(Request $request)
     {
-        $favorite = self::_getFavoriteByPropertyAndCustomerId($request)->first();
+        $favorite = self::_getFavoriteByPropertyCode($request)->first();
 
         if ($favorite) {
             return response()->json(['favorite' => $favorite], 200);
@@ -146,9 +156,11 @@ class FavoriteController extends Controller
      *
      * @return Response
      */
-    public function deleteFavorite(Request $request)
+    public function deleteFavorite(Request $request, String $propertyCode)
     {
-        $favorite = self::_getFavoriteByPropertyAndCustomerId($request)->first();
+        $favorite = Favorite::where('property_code', $propertyCode)
+            ->where('customer_id', Auth::guard('customers')->user()->id)
+            ->first();
 
         if ($favorite) {
             try {
@@ -164,22 +176,29 @@ class FavoriteController extends Controller
         }
     }
 
-    /**
-     * Favorite subject
-     * 
-     * The favorite $favorite 
-     * 
-     * @param Favorite $favorite
-     * 
-     * @return void
-     */
+    // /**
+    //  * Favorite subject
+    //  * 
+    //  * The favorite $favorite 
+    //  * 
+    //  * @param Favorite $favorite
+    //  * 
+    //  * @return void
+    //  */
 
-    private function _trashedRestore(Favorite $favorite)
+    // private function _trashedRestore(Favorite $favorite)
+    // {
+    //     if ($favorite->trashed()) {
+    //         $favorite->restore();
+    //     } else {
+    //         throw new \Exception('The favorite wasnt trashed so, error...');
+    //     }
+    // }
+
+    private function _restoreIfTrashed(Favorite $favorite)
     {
         if ($favorite->trashed()) {
             $favorite->restore();
-        } else {
-            throw new \Exception('The favorite wasnt trashed so, error...');
         }
     }
 
@@ -193,13 +212,12 @@ class FavoriteController extends Controller
      * @return Favorite
      */
 
-    private function _getFavoriteByPropertyAndCustomerId(Request $request)
+    private function _getFavoriteByPropertyCode(Request $request)
     {
-        $propertyId = $request->input('property_id');
-        $customerId = $request->input('customer_id');
+        $propertyCode = $request->input('property_code');
 
-        return Favorite::where('property_id', $propertyId)
-            ->where('customer_id', $customerId);
+        return Favorite::where('property_code', $propertyCode)
+            ->where('customer_id', Auth::guard('customers')->user()->id);
     }
 
     /**
@@ -214,8 +232,8 @@ class FavoriteController extends Controller
     private function _assembleFavorite(Request $request, Favorite $favorite = null)
     {
         $favorite || ($favorite = new Favorite);
-        $favorite->property_id = $request->input('property_id');
-        $favorite->customer_id = $request->input('customer_id');
+        $favorite->property_code = $request->input('property_code');
+        $favorite->customer_id = Auth::guard('customers')->user()->id;
 
         return $favorite;
     }
@@ -233,8 +251,7 @@ class FavoriteController extends Controller
         $validator = $this->validate(
             $request,
             [
-                'property_id' => 'required|integer',
-                'customer_id' => 'required|integer'
+                'property_code' => 'required|string'
             ]
         );
     }

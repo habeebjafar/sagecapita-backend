@@ -9,11 +9,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
-use App\Traits\UsesCode;
+use App\Traits\UsesCodeAndAuthedExclusive;
+use Illuminate\Support\Facades\Auth;
 
 class Property extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
-    use Authenticatable, Authorizable, UsesCode, SoftDeletes;
+    use Authenticatable, Authorizable, UsesCodeAndAuthedExclusive, SoftDeletes;
+
+    protected $appends = ['is_favorite'];
+
+    public function getIsFavoriteAttribute()
+    {
+        $customersGuard = Auth::guard('customers');
+
+        if ($customersGuard->check()) {
+            return Favorite::where('property_code', $this->code)
+            ->where('customer_id', $customersGuard->user()->id)
+            ->exists();
+        } else {
+            return null;
+        }
+    }
 
     // /**
     //  * The primary key associated with the table.

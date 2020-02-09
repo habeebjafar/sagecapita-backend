@@ -79,6 +79,8 @@ class LeadController extends Controller
                             return response()->json($message['result'], $message['status']);
                         }
                     }
+
+                    throw new \Exception($e->getMessage(), $e->getCode());
                 } catch (\Exception $e) {
                     \DB::rollBack();
 

@@ -3,12 +3,14 @@
 namespace App\Traits;
 
 use App\Counter;
+//import auth facades
+use Illuminate\Support\Facades\Auth;
 
-trait UsesCode
+trait UsesCodeAndAuthedExclusive
 {
 
     /**
-     * The "booting" method of the model, This help to magically create uuid for all new models
+     * The "booting" method of the model, This help to magically create code for all new models
      *
      * @return void
      */
@@ -26,6 +28,25 @@ trait UsesCode
                 $counter->save();
 
                 $model->code = $codeCode . $codeCount;
+            }
+        );
+
+        self::retrieved(
+            function ($model) {
+                if ($model->is_exclusive && !Auth::guard('customers')->check()) {
+                    $model->price && ($model->price = null);
+                    $model->price_lower_range && ($model->price_lower_range = null);
+                    $model->price_upper_range && ($model->price_upper_range = null);
+                }
+
+
+                // if (Auth::guard('customers')->check()) {
+
+                // } else if ($model->is_exclusive) {
+                //     $model->price && ($model->price = null);
+                //     $model->price_lower_range && ($model->price_lower_range = null);
+                //     $model->price_upper_range && ($model->price_upper_range = null);
+                // }
             }
         );
     }

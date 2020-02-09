@@ -22,14 +22,14 @@ $router->get(
 $router->group(
     ['prefix' => 'api'],
     function () use ($router) {
-        // Matches "/api/register
-        $router->post('register', 'AuthController@register');
+        // Matches "/api/user_register
+        $router->post('user_register', 'AuthUserController@register');
 
-        // Matches "/api/login
-        $router->post('login', 'AuthController@login');
+        // Matches "/api/user_login
+        $router->post('user_login', 'AuthUserController@login');
 
         // Matches "/api/profile
-        $router->get('profile', 'UserController@profile');
+        $router->get('user_profile', 'UserController@profile');
 
         // Matches "/api/users
         $router->post('users', 'UserController@createUser');
@@ -56,6 +56,12 @@ $router->group(
         // Matches "/api/users/1
         $router->delete('users/{id}', 'UserController@deleteUser');
 
+        // Matches "/api/customer_register
+        $router->post('customer_register', 'AuthCustomerController@register');
+
+        // Matches "/api/customer_login
+        $router->post('customer_login', 'AuthCustomerController@login');
+
         // Matches "/api/property
         $router->post(
             'property',
@@ -73,6 +79,18 @@ $router->group(
 
         // Matches "/api/property_exists/1
         $router->get('property_exists/{code}', 'PropertyController@propertyExists');
+
+        // Matches "/api/property_count
+        $router->get('property_count', 'PropertyController@getTotalProperties');
+
+        // Matches "/api/favorite_properties
+        $router->get(
+            'favorite_properties',
+            [
+                'middleware' => 'auth:customers',
+                'uses' => 'PropertyController@getFavorites'
+            ]
+        );
 
         // Matches "/api/top_types
         $router->get('top_types', 'PropertyController@getTopTypes');
@@ -152,23 +170,35 @@ $router->group(
             'PropertyGroupController@getPropertyGroupsListWithCount'
         );
 
+        // Matches "/api/favorites
+        $router->post(
+            'favorites',
+            [
+                'middleware' => 'auth:customers',
+                'uses' => 'FavoriteController@createFavorite'
+            ]
+        );
+
         // Matches "/api/total_favorites
         $router->get(
             'total_favorites',
             [
-                'middleware' => 'auth',
+                'middleware' => 'auth:users',
                 'uses' => 'FavoriteController@getTotalFavorites'
             ]
         );
 
-        // Matches "/api/lead
-        $router->post(
-            'lead',
+        // Matches "/api/favorites/1
+        $router->delete(
+            'favorites/{property_code}',
             [
-                'middleware' => 'auth',
-                'uses' => 'LeadController@createLead'
+                'middleware' => 'auth:customers',
+                'uses' => 'FavoriteController@deleteFavorite'
             ]
         );
+
+        // Matches "/api/lead
+        $router->post('lead', 'LeadController@createLead');
 
         // Matches "/api/lead
         $router->get(
