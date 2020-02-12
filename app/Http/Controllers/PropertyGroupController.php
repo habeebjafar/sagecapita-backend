@@ -65,16 +65,31 @@ class PropertyGroupController extends Controller
 
         $soldProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS total'))
             ->whereNotNull('sold')
-            ->whereBetween('created_at', [$last6Monthsdate, $nowdate])
-            ->orderBy('created_at', 'ASC')
-            ->groupBy('month')
-            ->get();
+            ->whereBetween('created_at', [$last6Monthsdate, $nowdate]);
+
 
         $soldExclusiveProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS total'))
             ->whereNotNull('is_exclusive')
             ->whereNotNull('sold')
-            ->whereBetween('created_at', [$last6Monthsdate, $nowdate])
-            ->orderBy('created_at', 'ASC')
+            ->whereBetween('created_at', [$last6Monthsdate, $nowdate]);
+
+        $user = Auth::guard('users')->user();
+
+        if ($user->perms !== 0) {
+            $agentId = $user->id;
+
+            $soldProperties
+                ->where('user_id', $agentId);
+
+            $soldExclusiveProperties
+                ->where('user_id', $agentId);
+        }
+
+        $soldProperties = $soldProperties->orderBy('created_at', 'ASC')
+            ->groupBy('month')
+            ->get();
+
+        $soldExclusiveProperties = $soldExclusiveProperties->orderBy('created_at', 'ASC')
             ->groupBy('month')
             ->get();
 
@@ -133,12 +148,12 @@ class PropertyGroupController extends Controller
             ->format('Y-m-d') . ' 23:59:59';
 
         $monthsFavCount
-            = Favorite::select(\DB::raw('COUNT(id) AS total'))
-            ->whereBetween('created_at', [$thisMonthsFirstdate, $nowdate]);
+            = Favorite::select(\DB::raw('COUNT(favorites.id) AS total'))
+            ->whereBetween('favorites.created_at', [$thisMonthsFirstdate, $nowdate]);
 
         $lastMonthsFavCount
-            = Favorite::select(\DB::raw('COUNT(id) AS total'))
-            ->whereBetween('created_at', [$lastMonthsFirstdate, $lastMonthsLastdate]);
+            = Favorite::select(\DB::raw('COUNT(favorites.id) AS total'))
+            ->whereBetween('favorites.created_at', [$lastMonthsFirstdate, $lastMonthsLastdate]);
 
         $user = Auth::guard('users')->user();
 
@@ -186,12 +201,12 @@ class PropertyGroupController extends Controller
             ->format('Y-m-d') . ' 23:59:59';
 
         $monthsMsgCount
-            = Message::select(\DB::raw('COUNT(id) AS total'))
-            ->whereBetween('created_at', [$thisMonthsFirstdate, $nowdate]);
+            = Message::select(\DB::raw('COUNT(messages.id) AS total'))
+            ->whereBetween('messages.created_at', [$thisMonthsFirstdate, $nowdate]);
 
         $lastMonthsMsgCount
-            = Message::select(\DB::raw('COUNT(id) AS total'))
-            ->whereBetween('created_at', [$lastMonthsFirstdate, $lastMonthsLastdate]);
+            = Message::select(\DB::raw('COUNT(messages.id) AS total'))
+            ->whereBetween('messages.created_at', [$lastMonthsFirstdate, $lastMonthsLastdate]);
 
         $user = Auth::guard('users')->user();
 
@@ -231,8 +246,18 @@ class PropertyGroupController extends Controller
     public function getPropertySoldTotalRatio()
     {
         $soldPropertiesTotalRatio
-            = Property::select(\DB::raw('COUNT(id) AS total'), \DB::raw('SUM(COALESCE(sold, 0)) AS sold'))
-            ->first();
+            = Property::select(\DB::raw('COUNT(id) AS total'), \DB::raw('SUM(COALESCE(sold, 0)) AS sold'));
+
+        $user = Auth::guard('users')->user();
+
+        if ($user->perms !== 0) {
+            $agentId = $user->id;
+
+            $soldPropertiesTotalRatio
+                ->where('user_id', $agentId);
+        }
+
+        $soldPropertiesTotalRatio = $soldPropertiesTotalRatio->first();
 
         return response()->json(['sold' => +$soldPropertiesTotalRatio->sold, 'total' => $soldPropertiesTotalRatio->total], 200);
     }
@@ -430,10 +455,25 @@ class PropertyGroupController extends Controller
 
     private function _groupPropertySubject(string $subject)
     {
-        return Property
+        $propertySubjectGroup = Property
             ::select($subject . ' AS name', \DB::raw('count(id) AS count'))
-            ->whereNull('sold')
-            ->orderBy('count', 'DESC')
+            ->whereNull('sold');
+
+
+        $usersGuard = Auth::guard('users');
+
+        if ($usersGuard->check()) {
+            $user = $usersGuard->user();
+
+            if ($user->perms !== 0) {
+                $agentId = $user->id;
+
+                $propertySubjectGroup
+                    ->where('user_id', $agentId);
+            }
+        }
+
+        return $propertySubjectGroup->orderBy('count', 'DESC')
             ->groupBy('name')
             ->get();
     }

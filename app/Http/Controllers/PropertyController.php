@@ -113,6 +113,19 @@ class PropertyController extends Controller
             $properties = self::selectPropertyLargeThumbnailFields()
                 ->whereNull('sold');
 
+            $usersGuard = Auth::guard('users');
+
+            if ($usersGuard->check()) {
+                $user = $usersGuard->user();
+
+                if ($user->perms !== 0) {
+                    $agentId = $user->id;
+
+                    $properties
+                        ->where('user_id', $agentId);
+                }
+            }
+
             if ($orderByCol && $orderByDir) {
                 if ($orderByCol === 'price') {
                     $properties
@@ -390,20 +403,18 @@ class PropertyController extends Controller
             $propertyTopStats = Property::select(
                 \DB::raw('SUM(COALESCE(sold, 0)) AS sold'),
                 \DB::raw('SUM(COALESCE(is_exclusive, 0)) AS exclusive')
-            )->first();
+            );
 
             $totalTransactions = Property::select(
                 \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS transactions')
             )
-                ->whereNotNull('sold')
-                ->first();
+                ->whereNotNull('sold');
 
             $monthsViews = View::select(
-                \DB::raw('COUNT(id) AS views')
+                \DB::raw('COUNT(views.id) AS views')
             )
-                ->whereRaw('MONTH(created_at) = ?', [date('n')])
-                ->whereRaw('YEAR(created_at) = ?', [date('Y')])
-                ->first();
+                ->whereRaw('MONTH(views.created_at) = ?', [date('n')])
+                ->whereRaw('YEAR(views.created_at) = ?', [date('Y')]);
 
             $daysTransactions = Property::select(
                 \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS transaction')
@@ -411,10 +422,38 @@ class PropertyController extends Controller
                 ->whereNotNull('sold')
                 ->whereRaw('DAY(created_at) = ?', [date('j')])
                 ->whereRaw('MONTH(created_at) = ?', [date('n')])
-                ->whereRaw('YEAR(created_at) = ?', [date('Y')])
-                ->first();
+                ->whereRaw('YEAR(created_at) = ?', [date('Y')]);
 
-            return response()->json(['sold' => $propertyTopStats->sold, 'exclusive' => $propertyTopStats->exclusive, 'transactions' => $totalTransactions->transactions, 'months_views' => $monthsViews->views, 'days_transactions' => $daysTransactions->transaction], 200);
+            $user = Auth::guard('users')->user();
+
+            if ($user->perms !== 0) {
+                $agentId = $user->id;
+
+                $propertyTopStats
+                    ->where('user_id', $agentId);
+
+                $totalTransactions
+                    ->where('user_id', $agentId);
+
+                $monthsViews
+                    ->join(
+                        'properties',
+                        function ($join) use ($agentId) {
+                            $join->on('views.property_code', '=', 'properties.code')
+                                ->where('properties.user_id', $agentId);
+                        }
+                    );
+
+                $daysTransactions
+                    ->where('user_id', $agentId);
+            }
+
+            $propertyTopStats = $propertyTopStats->first();
+            $totalTransactions = $totalTransactions->first();
+            $monthsViews = $monthsViews->first();
+            $daysTransactions = $daysTransactions->first();
+
+            return response()->json(['sold' => +$propertyTopStats->sold, 'exclusive' => +$propertyTopStats->exclusive, 'transactions' => +$totalTransactions->transactions, 'months_views' => $monthsViews->views, 'days_transactions' => +$daysTransactions->transaction], 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Problem getting stats'], 500);
         }
@@ -430,15 +469,35 @@ class PropertyController extends Controller
         try {
             $propertyStats = Property::select(
                 \DB::raw('COUNT(id) AS properties'),
-                \DB::raw('SUM(views) AS views'),
-                \DB::raw('SUM(inquiries) AS requests')
-            )->first();
+                \DB::raw('SUM(COALESCE(views, 0)) AS views'),
+                \DB::raw('SUM(COALESCE(inquiries, 0)) AS requests')
+            );
 
             $favorites
-                = Favorite::select(\DB::raw('count(id) AS favorites'))
-                ->first();
+                = Favorite::select(\DB::raw('count(favorites.id) AS favorites'));
 
-            return response()->json(['properties' => $propertyStats->properties, 'views' => $propertyStats->views, 'requests' => $propertyStats->requests, 'favorites' => $favorites->favorites], 200);
+            $user = Auth::guard('users')->user();
+
+            if ($user->perms !== 0) {
+                $agentId = $user->id;
+
+                $propertyStats
+                    ->where('user_id', $agentId);
+
+                $favorites
+                    ->join(
+                        'properties',
+                        function ($join) use ($agentId) {
+                            $join->on('favorites.property_code', '=', 'properties.code')
+                                ->where('properties.user_id', $agentId);
+                        }
+                    );
+            }
+
+            $propertyStats = $propertyStats->first();
+            $favorites = $favorites->first();
+
+            return response()->json(['properties' => $propertyStats->properties, 'views' => +$propertyStats->views, 'requests' => +$propertyStats->requests, 'favorites' => $favorites->favorites], 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Problem getting stats'], 500);
         }
@@ -755,7 +814,7 @@ class PropertyController extends Controller
         $page = LengthAwarePaginator::resolveCurrentPage();
         $options = ['path' => url('api/' . $routeName)];
         $topProperties
-            = Property::select($column . ' AS name', \DB::raw('(sum(views) + sum(inquiries)) AS sumOfRequests'), \DB::raw('count(id) AS count'))
+            = Property::select($column . ' AS name', \DB::raw('(SUM(COALESCE(views, 0)) + SUM(COALESCE(inquiries, 0))) AS sumOfRequests'), \DB::raw('count(id) AS count'))
             ->whereNull('sold')
             ->orderBy('sumOfRequests', 'DESC')
             ->groupBy('name')

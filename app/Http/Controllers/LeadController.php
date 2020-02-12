@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Lead;
 use App\Message;
@@ -106,13 +107,28 @@ class LeadController extends Controller
         $perPage = $request->input('per_page') ?? 8;
         $nameContains = $request->input('name');
 
-        $leads = Lead::orderBy('id', 'DESC');
+        $leads = Lead::orderBy('leads.id', 'DESC');
 
         if ($nameContains) {
             $leads->whereRaw(
                 "MATCH(first_name,last_name) AGAINST(? IN BOOLEAN MODE)",
                 [$nameContains . '*']
             );
+        }
+
+        $user = Auth::guard('users')->user();
+
+        if ($user->perms !== 0) {
+            $agentId = $user->id;
+
+            $leads
+                ->join(
+                    'properties',
+                    function ($join) use ($agentId) {
+                        $join->on(\DB::raw('(SELECT property_code FROM messages WHERE lead_id = leads.id LIMIT 1)'), '=', 'properties.code')
+                            ->where('properties.user_id', $agentId);
+                    }
+                );
         }
 
         return response()->json(['leads' => $leads->paginate($perPage)], 200);

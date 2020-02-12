@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Message;
 
@@ -51,6 +52,15 @@ class MessageController extends Controller
                 "MATCH(leads.first_name,leads.last_name) AGAINST(? IN BOOLEAN MODE)",
                 [$nameContains . '*']
             );
+        }
+
+        $user = Auth::guard('users')->user();
+
+        if ($user->perms !== 0) {
+            $agentId = $user->id;
+
+            $messages
+                ->where('user_id', $agentId);
         }
 
         return response()->json(['messages' => $messages->paginate($perPage)], 200);
