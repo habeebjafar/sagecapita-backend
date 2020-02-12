@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Favorite;
+use App\Message;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use App\PropertyGroup;
 use App\Property;
@@ -46,6 +49,192 @@ class PropertyGroupController extends Controller
         } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property group data'], 400);
         }
+    }
+
+    /**
+     * Get 6 months sold property data.
+     *
+     * @return Response
+     */
+
+    public function get6MonthsSoldPropertiesData()
+    {
+        $nowdate = (new \DateTime())->format('Y-m-d H:i:s');
+        $last6Monthsdate
+            = (new \DateTime('first day of this month - 6 months'))->format('Y-m-d ') . '00:00:00';
+
+        $soldProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS total'))
+            ->whereNotNull('sold')
+            ->whereBetween('created_at', [$last6Monthsdate, $nowdate])
+            ->orderBy('created_at', 'ASC')
+            ->groupBy('month')
+            ->get();
+
+        $soldExclusiveProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS total'))
+            ->whereNotNull('is_exclusive')
+            ->whereNotNull('sold')
+            ->whereBetween('created_at', [$last6Monthsdate, $nowdate])
+            ->orderBy('created_at', 'ASC')
+            ->groupBy('month')
+            ->get();
+
+        $exclusivePropertiesIndex = 0;
+        $soldPropertiesMap = $soldProperties->mapWithKeys(
+            function ($item) use (&$soldExclusiveProperties, &$exclusivePropertiesIndex) {
+                if ($soldExclusiveProperties[$exclusivePropertiesIndex]->month === $item['month']) {
+                    $exclusiveMonth
+                        = $soldExclusiveProperties[$exclusivePropertiesIndex]->total;
+                    $exclusivePropertiesIndex += 1;
+                } else {
+                    $exclusiveMonth = 0;
+                }
+
+                return [$item['month'] => [
+                    +$item['total'],
+                    +$exclusiveMonth
+                ]];
+            }
+        );
+
+        return response()->json(['sold_properties' => $soldPropertiesMap], 200);
+    }
+
+    /**
+     * Get all city PropertyGroup.
+     *
+     * @return Response
+     */
+    public function getPropertyCityGroupListWithCount()
+    {
+        $cityGroup = self::_groupPropertySubject('city');
+
+        $cityGroupMap = $cityGroup->mapWithKeys(
+            function ($item) {
+                return [$item['name'] => $item['count']];
+            }
+        );
+
+        return response()->json(['cities_list' => $cityGroupMap], 200);
+    }
+
+    /**
+     * Get property new months favorites and change.
+     *
+     * @return Response
+     */
+    public function getNewMonthsFavoritesAndChange()
+    {
+        $nowdate = (new \DateTime())->format('Y-m-d H:i:s');
+        $thisMonthsFirstdate = (new \DateTime('first day of this month'))
+            ->format('Y-m-d') . ' 00:00:00';
+        $lastMonthsFirstdate = (new \DateTime('first day of last month'))
+            ->format('Y-m-d') . ' 00:00:00';
+        $lastMonthsLastdate = (new \DateTime('last day of last month'))
+            ->format('Y-m-d') . ' 23:59:59';
+
+        $monthsFavCount
+            = Favorite::select(\DB::raw('COUNT(id) AS total'))
+            ->whereBetween('created_at', [$thisMonthsFirstdate, $nowdate]);
+
+        $lastMonthsFavCount
+            = Favorite::select(\DB::raw('COUNT(id) AS total'))
+            ->whereBetween('created_at', [$lastMonthsFirstdate, $lastMonthsLastdate]);
+
+        $user = Auth::guard('users')->user();
+
+        if ($user->perms !== 0) {
+            $agentId = $user->id;
+
+            $monthsFavCount
+                ->join(
+                    'properties',
+                    function ($join) use ($agentId) {
+                        $join->on('favorites.property_code', '=', 'properties.code')
+                            ->where('properties.user_id', $agentId);
+                    }
+                );
+
+            $lastMonthsFavCount
+                ->join(
+                    'properties',
+                    function ($join) use ($agentId) {
+                        $join->on('favorites.property_code', '=', 'properties.code')
+                            ->where('properties.user_id', $agentId);
+                    }
+                );
+        }
+
+        $monthsFavTotal = $monthsFavCount->first()->total;
+        $lastMonthsFavTotal = $lastMonthsFavCount->first()->total;
+
+        return response()->json(['total' => $monthsFavTotal, 'change' => $lastMonthsFavTotal ? ((($monthsFavTotal - $lastMonthsFavTotal) / $lastMonthsFavTotal) * 100) : 100], 200);
+    }
+
+    /**
+     * Get property new months favorites and change.
+     *
+     * @return Response
+     */
+    public function getNewMonthsMessagesAndChange()
+    {
+        $nowdate = (new \DateTime())->format('Y-m-d H:i:s');
+        $thisMonthsFirstdate = (new \DateTime('first day of this month'))
+            ->format('Y-m-d') . ' 00:00:00';
+        $lastMonthsFirstdate = (new \DateTime('first day of last month'))
+            ->format('Y-m-d') . ' 00:00:00';
+        $lastMonthsLastdate = (new \DateTime('last day of last month'))
+            ->format('Y-m-d') . ' 23:59:59';
+
+        $monthsMsgCount
+            = Message::select(\DB::raw('COUNT(id) AS total'))
+            ->whereBetween('created_at', [$thisMonthsFirstdate, $nowdate]);
+
+        $lastMonthsMsgCount
+            = Message::select(\DB::raw('COUNT(id) AS total'))
+            ->whereBetween('created_at', [$lastMonthsFirstdate, $lastMonthsLastdate]);
+
+        $user = Auth::guard('users')->user();
+
+        if ($user->perms !== 0) {
+            $agentId = $user->id;
+
+            $monthsMsgCount
+                ->join(
+                    'properties',
+                    function ($join) use ($agentId) {
+                        $join->on('messages.property_code', '=', 'properties.code')
+                            ->where('properties.user_id', $agentId);
+                    }
+                );
+
+            $lastMonthsMsgCount
+                ->join(
+                    'properties',
+                    function ($join) use ($agentId) {
+                        $join->on('messages.property_code', '=', 'properties.code')
+                            ->where('properties.user_id', $agentId);
+                    }
+                );
+        }
+
+        $monthsMsgTotal = $monthsMsgCount->first()->total;
+        $lastMonthsMsgTotal = $lastMonthsMsgCount->first()->total;
+
+        return response()->json(['total' => $monthsMsgTotal, 'change' => $lastMonthsMsgTotal ? ((($monthsMsgTotal - $lastMonthsMsgTotal) / $lastMonthsMsgTotal) * 100) : 100], 200);
+    }
+
+    /**
+     * Get property sold total ratio.
+     *
+     * @return Response
+     */
+    public function getPropertySoldTotalRatio()
+    {
+        $soldPropertiesTotalRatio
+            = Property::select(\DB::raw('COUNT(id) AS total'), \DB::raw('SUM(COALESCE(sold, 0)) AS sold'))
+            ->first();
+
+        return response()->json(['sold' => +$soldPropertiesTotalRatio->sold, 'total' => $soldPropertiesTotalRatio->total], 200);
     }
 
     /**

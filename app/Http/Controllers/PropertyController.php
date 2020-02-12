@@ -7,6 +7,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use App\Property;
 use App\PropertyGroup;
 use App\Favorite;
+use App\View;
 use Illuminate\Support\Facades\Auth;
 
 class PropertyController extends Controller
@@ -70,7 +71,10 @@ class PropertyController extends Controller
             $whereState = $request->input('state');
             $whereSuburb = $request->input('suburb');
             $whereType = $request->input('type');
+
             $wherePrice = null;
+
+            $video = !!$request->input('video');
 
             $_price = $request->input('price');
 
@@ -116,6 +120,10 @@ class PropertyController extends Controller
                 } else {
                     $properties->orderBy($orderByCol, $orderByDir);
                 }
+            }
+
+            if ($video) {
+                $properties->whereNotNull('video');
             }
 
             $whereOrArray = [];
@@ -232,7 +240,10 @@ class PropertyController extends Controller
             $whereState = $request->input('state');
             $whereSuburb = $request->input('suburb');
             $whereType = $request->input('type');
+
             $wherePrice = null;
+
+            // $video = !!$request->input('video');
 
             $_price = $request->input('price');
 
@@ -369,7 +380,48 @@ class PropertyController extends Controller
     }
 
     /**
-     * Check if property exists.
+     * Get properties top stats.
+     *
+     * @return Response
+     */
+    public function getPropertiesTopStats()
+    {
+        try {
+            $propertyTopStats = Property::select(
+                \DB::raw('SUM(COALESCE(sold, 0)) AS sold'),
+                \DB::raw('SUM(COALESCE(is_exclusive, 0)) AS exclusive')
+            )->first();
+
+            $totalTransactions = Property::select(
+                \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS transactions')
+            )
+                ->whereNotNull('sold')
+                ->first();
+
+            $monthsViews = View::select(
+                \DB::raw('COUNT(id) AS views')
+            )
+                ->whereRaw('MONTH(created_at) = ?', [date('n')])
+                ->whereRaw('YEAR(created_at) = ?', [date('Y')])
+                ->first();
+
+            $daysTransactions = Property::select(
+                \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS transaction')
+            )
+                ->whereNotNull('sold')
+                ->whereRaw('DAY(created_at) = ?', [date('j')])
+                ->whereRaw('MONTH(created_at) = ?', [date('n')])
+                ->whereRaw('YEAR(created_at) = ?', [date('Y')])
+                ->first();
+
+            return response()->json(['sold' => $propertyTopStats->sold, 'exclusive' => $propertyTopStats->exclusive, 'transactions' => $totalTransactions->transactions, 'months_views' => $monthsViews->views, 'days_transactions' => $daysTransactions->transaction], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Problem getting stats'], 500);
+        }
+    }
+
+    /**
+     * Get properties stats.
      *
      * @return Response
      */
@@ -742,9 +794,17 @@ class PropertyController extends Controller
 
     private function incrementViews(Property $property)
     {
-        $property->views += 1;
+        \DB::transaction(
+            function () use ($property) {
+                $view = new View;
+                $view->property_code = $property->code;
+                $view->save();
 
-        $property->save();
+                $property->views += 1;
+
+                $property->save();
+            }
+        );
     }
 
     private function incrementInquiries(Property $property)
@@ -756,12 +816,15 @@ class PropertyController extends Controller
 
     private function selectPropertyLargeThumbnailFields()
     {
+        $MAX_MESSAGE_LENGTH = 60;
+
         return Property::select(
             'code',
             'video',
             'interior_surface',
             'photo',
             'main_title',
+            \DB::raw('(select case when length(description_text) > ' . $MAX_MESSAGE_LENGTH . ' then concat(substring(description_text, 1, ' . $MAX_MESSAGE_LENGTH . '), \'...\') else description_text end) as description_text'),
             'price',
             'price_upper_range',
             'price_lower_range',

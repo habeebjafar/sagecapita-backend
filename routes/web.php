@@ -140,6 +140,15 @@ $router->group(
             ]
         );
 
+        // Matches "/api/properties_top_stats
+        $router->get(
+            'properties_top_stats',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@getPropertiesTopStats'
+            ]
+        );
+
         // Matches "/api/property/1
         $router->put(
             'property/{code}',
@@ -168,6 +177,51 @@ $router->group(
         $router->get(
             'get_property_groups_list_with_count',
             'PropertyGroupController@getPropertyGroupsListWithCount'
+        );
+
+        // Matches "/api/get_property_city_group_list_with_count
+        $router->get(
+            'get_property_city_group_list_with_count',
+            [
+                'middleware' => 'auth:users',
+                'uses' => 'PropertyGroupController@getPropertyCityGroupListWithCount'
+            ]
+        );
+
+        // Matches "/api/get_6_months_sold_properties_data
+        $router->get(
+            'get_6_months_sold_properties_data',
+            [
+                'middleware' => 'auth:users',
+                'uses' => 'PropertyGroupController@get6MonthsSoldPropertiesData'
+            ]
+        );
+
+        // Matches "/api/get_property_sold_total_ratio
+        $router->get(
+            'get_property_sold_total_ratio',
+            [
+                'middleware' => 'auth:users',
+                'uses' => 'PropertyGroupController@getPropertySoldTotalRatio'
+            ]
+        );
+
+        // Matches "/api/get_new_months_favorites_and_change
+        $router->get(
+            'get_new_months_favorites_and_change',
+            [
+                'middleware' => 'auth:users',
+                'uses' => 'PropertyGroupController@getNewMonthsFavoritesAndChange'
+            ]
+        );
+
+        // Matches "/api/get_new_months_messages_and_change
+        $router->get(
+            'get_new_months_messages_and_change',
+            [
+                'middleware' => 'auth:users',
+                'uses' => 'PropertyGroupController@getNewMonthsMessagesAndChange'
+            ]
         );
 
         // Matches "/api/favorites
@@ -323,6 +377,69 @@ $router->group(
             [
                 'middleware' => 'auth',
                 'uses' => 'NewsController@deleteNews'
+            ]
+        );
+
+        // Matches "/api/home_carousel
+        $router->post(
+            'home_carousel',
+            [
+                'middleware' => 'auth',
+                'uses' => 'HomeCarouselController@createHomeCarousel'
+            ]
+        );
+
+        // Matches "/api/home_carousel
+        $router->get('home_carousel', 'HomeCarouselController@getHomeCarousels');
+
+        // Matches "/api/home_carousel
+        $router->put(
+            'home_carousel',
+            [
+                'middleware' => 'auth',
+                'uses' => 'HomeCarouselController@updateHomeCarousel'
+            ]
+        );
+
+        // Matches "/api/home_carousel
+        $router->delete(
+            'home_carousel',
+            [
+                'middleware' => 'auth',
+                'uses' => 'HomeCarouselController@deleteHomeCarousel'
+            ]
+        );
+
+        // Matches "/api/main_gallery_photo
+        $router->post(
+            'main_gallery_photo',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MainGalleryPhotoController@createMainGalleryPhoto'
+            ]
+        );
+
+        // Matches "/api/main_gallery_photo
+        $router->get(
+            'main_gallery_photo',
+            'MainGalleryPhotoController@getMainGalleryPhoto'
+        );
+
+        // Matches "/api/main_gallery_photo
+        $router->put(
+            'main_gallery_photo',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MainGalleryPhotoController@updateMainGalleryPhoto'
+            ]
+        );
+
+        // Matches "/api/main_gallery_photo
+        $router->delete(
+            'main_gallery_photo',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MainGalleryPhotoController@deleteMainGalleryPhoto'
             ]
         );
     }

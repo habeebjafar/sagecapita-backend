@@ -28,6 +28,7 @@ trait UsesCodeAndAuthedExclusive
                 $counter->save();
 
                 $model->code = $codeCode . $codeCount;
+                $model->user_id = Auth::guard('users')->user()->id;
             }
         );
 
