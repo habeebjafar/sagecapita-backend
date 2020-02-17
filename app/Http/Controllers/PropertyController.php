@@ -687,7 +687,9 @@ class PropertyController extends Controller
         try {
             $property = Property::findOrFail($code);
 
-            self::incrementViews($property);
+            if (Auth::guard('customers')->check()) {
+                self::incrementViews($property);
+            }
 
             return response()->json(['property' => $property], 200);
         } catch (\Exception $e) {

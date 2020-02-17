@@ -34,20 +34,11 @@ trait UsesCodeAndAuthedExclusive
 
         self::retrieved(
             function ($model) {
-                if ($model->is_exclusive && !Auth::guard('customers')->check()) {
+                if ($model->is_exclusive && !Auth::guard('customers')->check() && !Auth::guard('users')->check()) {
                     $model->price && ($model->price = null);
                     $model->price_lower_range && ($model->price_lower_range = null);
                     $model->price_upper_range && ($model->price_upper_range = null);
                 }
-
-
-                // if (Auth::guard('customers')->check()) {
-
-                // } else if ($model->is_exclusive) {
-                //     $model->price && ($model->price = null);
-                //     $model->price_lower_range && ($model->price_lower_range = null);
-                //     $model->price_upper_range && ($model->price_upper_range = null);
-                // }
             }
         );
     }

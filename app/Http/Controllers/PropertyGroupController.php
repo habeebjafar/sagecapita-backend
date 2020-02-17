@@ -67,7 +67,6 @@ class PropertyGroupController extends Controller
             ->whereNotNull('sold')
             ->whereBetween('created_at', [$last6Monthsdate, $nowdate]);
 
-
         $soldExclusiveProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS total'))
             ->whereNotNull('is_exclusive')
             ->whereNotNull('sold')

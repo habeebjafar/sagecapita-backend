@@ -14,6 +14,8 @@ class View extends Model implements AuthenticatableContract, AuthorizableContrac
 {
     use Authenticatable, Authorizable, AuthedCustomerId;
 
+    public $timestamps = false;
+
     /**
      * The attributes that are mass assignable.
      *
