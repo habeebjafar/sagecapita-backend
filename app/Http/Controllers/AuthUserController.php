@@ -60,7 +60,7 @@ class AuthUserController extends Controller
                 return response()->json(['user' => $user, 'message' => 'CREATED'], 201);
             } catch (\Exception $e) {
                 //return error message
-                return response()->json(['message' => 'User Registration Failed!'], 409);
+                return response()->json(['message' => 'User Registration Failed!'], 500);
             }
 
         } catch (\Exception $e) {
@@ -93,7 +93,7 @@ class AuthUserController extends Controller
 
                 $usersAuth = Auth::guard('users');
         
-                if (!$token = $usersAuth->attempt($credentials)) {
+                if (!$token = $usersAuth->attempt($credentials, true)) {
                     return response()->json(['message' => 'Unauthorized'], 401);
                 }
         

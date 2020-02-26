@@ -38,6 +38,8 @@ trait UsesCodeAndAuthedExclusive
                     $model->price && ($model->price = null);
                     $model->price_lower_range && ($model->price_lower_range = null);
                     $model->price_upper_range && ($model->price_upper_range = null);
+
+                    $model->photos = json_encode([\json_decode($model->photos)[0]]);
                 }
             }
         );

@@ -26,6 +26,8 @@ class CreatePropertyGroupsTable extends Migration
 
             $table->unique(['name', 'class']);
         });
+
+        \DB::statement('ALTER TABLE property_groups ADD FULLTEXT (name, class)');
     }
 
     /**

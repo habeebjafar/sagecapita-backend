@@ -77,7 +77,7 @@ class Property extends Model implements AuthenticatableContract, AuthorizableCon
      * @var array
      */
     protected $fillable = [
-        'photo', 'photos', 'video', 'main_title', 'side_title',
+        'photo', 'photos', 'video', 'brochure', 'main_title', 'side_title',
         'heading_title', 'description_text', 'country', 'state', 'city', 'suburb',
         'type', 'interior_surface', 'exterior_surface', 'features', 'is_exclusive',
         'price', 'price_lower_range', 'price_upper_range', 'updated_at'

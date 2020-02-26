@@ -19,7 +19,6 @@ class PropertyGroupController extends Controller
      */
     public function __construct()
     {
-        //$this->middleware('auth');
     }
 
     /**
@@ -32,22 +31,168 @@ class PropertyGroupController extends Controller
     {
         try {
             //validate incoming request 
-            self::_propertyGroupValidation($request);
+            self::_addPropertyGroupValidation($request);
 
             try {
-                // $propertyGroup = PropertyGroup::create($request->all());
-                $propertyGroup = self::assemblePropertyGroup($request);
+                $propertyGroup = self::_assembleAddPropertyGroup($request);
 
                 $propertyGroup->save();
 
                 //return successful response
                 return response()->json(['property_group' => $propertyGroup, 'message' => 'CREATED'], 201);
             } catch (\Exception $e) {
-                //return error message
-                return response()->json(['message' => 'Property group Creation Failed!'], 409);
+                try {
+                    if ($e->getCode() === '23000') {
+                        $propertyGroup = PropertyGroup::withTrashed()
+                            ->where('name', $propertyGroup->name)
+                            ->where('class', $propertyGroup->class)
+                            ->first();
+
+                        self::_restoreIfTrashed($propertyGroup);
+
+                        return response()->json(['property_group' => $propertyGroup, 'message' => 'UPDATED'], 200);
+                    }
+
+                    throw new \Exception($e->getMessage(), $e->getCode());
+                } catch (\Exception $e) {
+                    //return error message
+                    return response()->json(['message' => 'Property group Creation Failed!'], 500);
+                }
             }
         } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property group data'], 400);
+        }
+    }
+
+    /**
+     * Get all PropertyGroup.
+     *
+     * @return Response
+     */
+    public function getPropertyGroups(Request $request)
+    {
+        // TODO: use the query string to select the search criteria, result lenght, result page
+
+        $perPage = $request->input('per_page') ?? 8;
+        $nameContains = $request->input('name');
+
+        $PropertyGroups = PropertyGroup::orderBy('property_groups.id', 'DESC');
+
+        if ($nameContains) {
+            $PropertyGroups->whereRaw(
+                "MATCH(name,class) AGAINST(? IN BOOLEAN MODE)",
+                [$nameContains . '*']
+            );
+        }
+
+        return response()->json(['property_groups' => $PropertyGroups->paginate($perPage)], 200);
+    }
+
+    /**
+     * Check if propertyGroup exists.
+     * 
+     * @param Request $request
+     *
+     * @return Response
+     */
+    public function propertyGroupExists(Request $request)
+    {
+        $name = $request->input('name');
+        $class = $request->input('class');
+
+        if (PropertyGroup::where('name', $name)->where('class', $class)->exists()) {
+            return response()->json(['message' => 'Property group exists'], 200);
+        } else {
+            return response()->json(['message' => 'Property group not found'], 404);
+        }
+    }
+
+    /**
+     * Get one propertyGroup.
+     *
+     * @return Response
+     */
+    public function getPropertyGroup(Request $request)
+    {
+        $name = $request->input('name');
+        $class = $request->input('class');
+
+        $propertyGroup
+            = PropertyGroup::where('name', $name)
+            ->where('class', $class)
+            ->first();
+
+        if ($propertyGroup) {
+            return response()->json(['property_group' => $propertyGroup], 200);
+        } else {
+            return response()->json(['message' => 'propertyGroup not found!'], 404);
+        }
+    }
+
+    /**
+     * Update propertyGroup.
+     *
+     * @param Request $request
+     * 
+     * @return Response
+     */
+    public function updatePropertyGroup(Request $request)
+    {
+        try {
+            self::_updatePropertyGroupValidation($request);
+
+            $name = $request->input('_name') ?? $request->input('name');
+            $class = $request->input('_class') ?? $request->input('class');
+
+            $propertyGroup = PropertyGroup::where('name', $name)
+                ->where('class', $class)
+                ->first();
+
+            if ($propertyGroup) {
+                try {
+                    $propertyGroup
+                        = self::_assembleUpdatePropertyGroup($request, $propertyGroup);
+
+                    $propertyGroup->save();
+
+                    return response()->json(['property_group' => $propertyGroup], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'property group update failed!'], 500);
+                }
+            } else {
+                return response()->json(['message' => 'property group not found!'], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the propertyGroup data'], 400);
+        }
+    }
+
+    /**
+     * Get one propertyGroup.
+     *
+     * @return Response
+     */
+    public function deletePropertyGroup(Request $request)
+    {
+        $name = $request->input('name');
+        $class = $request->input('class');
+
+        $propertyGroup = PropertyGroup::where('name', $name)
+            ->where('class', $class)
+            ->first();
+
+        if ($propertyGroup) {
+            try {
+                $propertyGroup->delete();
+
+                return response()->json(['message' => 'property group deleted!'], 200);
+            } catch (\Exception $e) {
+
+                return response()->json(['message' => 'property group deletion failed!'], 500);
+            }
+        } else {
+            return response()->json(['message' => 'property group not found!'], 404);
         }
     }
 
@@ -59,17 +204,17 @@ class PropertyGroupController extends Controller
 
     public function get6MonthsSoldPropertiesData()
     {
-        $nowdate = (new \DateTime())->format('Y-m-d H:i:s');
+        $nowdate = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
         $last6Monthsdate
-            = (new \DateTime('first day of this month - 6 months'))->format('Y-m-d ') . '00:00:00';
+            = (new \DateTime('first day of this month - 6 months', new \DateTimeZone('UTC')))->format('Y-m-d ') . '00:00:00';
 
-        $soldProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS total'))
-            ->whereNotNull('sold')
+        $soldProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(NULLIF(price, 0), price_lower_range, price_upper_range, 0)) AS total'))
+            ->whereNotNull('sold_at')
             ->whereBetween('created_at', [$last6Monthsdate, $nowdate]);
 
-        $soldExclusiveProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS total'))
+        $soldExclusiveProperties = Property::select(\DB::raw('DATE_FORMAT(created_at, \'%b\') AS month'), \DB::raw('SUM(COALESCE(NULLIF(price, 0), price_lower_range, price_upper_range, 0)) AS total'))
             ->whereNotNull('is_exclusive')
-            ->whereNotNull('sold')
+            ->whereNotNull('sold_at')
             ->whereBetween('created_at', [$last6Monthsdate, $nowdate]);
 
         $user = Auth::guard('users')->user();
@@ -95,7 +240,7 @@ class PropertyGroupController extends Controller
         $exclusivePropertiesIndex = 0;
         $soldPropertiesMap = $soldProperties->mapWithKeys(
             function ($item) use (&$soldExclusiveProperties, &$exclusivePropertiesIndex) {
-                if ($soldExclusiveProperties[$exclusivePropertiesIndex]->month === $item['month']) {
+                if (isset($soldExclusiveProperties[$exclusivePropertiesIndex]) && $soldExclusiveProperties[$exclusivePropertiesIndex]->month === $item['month']) {
                     $exclusiveMonth
                         = $soldExclusiveProperties[$exclusivePropertiesIndex]->total;
                     $exclusivePropertiesIndex += 1;
@@ -138,12 +283,12 @@ class PropertyGroupController extends Controller
      */
     public function getNewMonthsFavoritesAndChange()
     {
-        $nowdate = (new \DateTime())->format('Y-m-d H:i:s');
-        $thisMonthsFirstdate = (new \DateTime('first day of this month'))
+        $nowdate = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $thisMonthsFirstdate = (new \DateTime('first day of this month', new \DateTimeZone('UTC')))
             ->format('Y-m-d') . ' 00:00:00';
-        $lastMonthsFirstdate = (new \DateTime('first day of last month'))
+        $lastMonthsFirstdate = (new \DateTime('first day of last month', new \DateTimeZone('UTC')))
             ->format('Y-m-d') . ' 00:00:00';
-        $lastMonthsLastdate = (new \DateTime('last day of last month'))
+        $lastMonthsLastdate = (new \DateTime('last day of last month', new \DateTimeZone('UTC')))
             ->format('Y-m-d') . ' 23:59:59';
 
         $monthsFavCount
@@ -191,12 +336,12 @@ class PropertyGroupController extends Controller
      */
     public function getNewMonthsMessagesAndChange()
     {
-        $nowdate = (new \DateTime())->format('Y-m-d H:i:s');
-        $thisMonthsFirstdate = (new \DateTime('first day of this month'))
+        $nowdate = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+        $thisMonthsFirstdate = (new \DateTime('first day of this month', new \DateTimeZone('UTC')))
             ->format('Y-m-d') . ' 00:00:00';
-        $lastMonthsFirstdate = (new \DateTime('first day of last month'))
+        $lastMonthsFirstdate = (new \DateTime('first day of last month', new \DateTimeZone('UTC')))
             ->format('Y-m-d') . ' 00:00:00';
-        $lastMonthsLastdate = (new \DateTime('last day of last month'))
+        $lastMonthsLastdate = (new \DateTime('last day of last month', new \DateTimeZone('UTC')))
             ->format('Y-m-d') . ' 23:59:59';
 
         $monthsMsgCount
@@ -245,7 +390,7 @@ class PropertyGroupController extends Controller
     public function getPropertySoldTotalRatio()
     {
         $soldPropertiesTotalRatio
-            = Property::select(\DB::raw('COUNT(id) AS total'), \DB::raw('SUM(COALESCE(sold, 0)) AS sold'));
+            = Property::select(\DB::raw('COUNT(id) AS total'), \DB::raw('SUM(CASE WHEN sold_at IS NOT NULL THEN 1 ELSE 0 END) AS sold'));
 
         $user = Auth::guard('users')->user();
 
@@ -329,120 +474,6 @@ class PropertyGroupController extends Controller
     }
 
     /**
-     * Get all PropertyGroup.
-     *
-     * @return Response
-     */
-    public function getPropertyGroups()
-    {
-        // TODO: use the query string to select the search criteria, result lenght, result page
-        return response()->json(['property_groups' =>  PropertyGroup::all()], 200);
-    }
-
-    /**
-     * Check if propertyGroup exists.
-     * 
-     * @param Request $request
-     *
-     * @return Response
-     */
-    public function propertyGroupExists(Request $request)
-    {
-        $name = $request->input('name');
-        $class = $request->input('class');
-
-        if (PropertyGroup::where('name', $name)->where('class', $class)->exists()) {
-            return response()->json(['message' => 'Property group exists'], 200);
-        } else {
-            return response()->json(['message' => 'Property group not found'], 404);
-        }
-    }
-
-    /**
-     * Get one propertyGroup.
-     *
-     * @return Response
-     */
-    public function getProperty(Request $request)
-    {
-        $name = $request->input('name');
-        $class = $request->input('class');
-
-        $propertyGroup
-            = PropertyGroup::where('name', $name)
-            ->where('class', $class)
-            ->first();
-
-        if ($propertyGroup) {
-            return response()->json(['property_group' => $propertyGroup], 200);
-        } else {
-            return response()->json(['message' => 'propertyGroup not found!'], 404);
-        }
-    }
-
-    /**
-     * Update propertyGroup.
-     *
-     * @param Request $request
-     * 
-     * @return Response
-     */
-    public function updatePropertyGroup(Request $request)
-    {
-        try {
-            self::_propertyGroupValidation($request);
-
-            $name = $request->input('name');
-            $class = $request->input('class');
-
-            $propertyGroup = PropertyGroup::where('name', $name)->where('class', $class)->first();
-
-            if ($propertyGroup) {
-                try {
-                    $propertyGroup = self::_assembleGroupProperty($request, $propertyGroup);
-
-                    $propertyGroup->save();
-
-                    return response()->json(['propertyGroup' => $propertyGroup], 200);
-                } catch (\Exception $e) {
-
-                    return response()->json(['message' => 'propertyGroup update failed!'], 500);
-                }
-            } else {
-                return response()->json(['message' => 'propertyGroup not found!'], 404);
-            }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the propertyGroup data'], 400);
-        }
-    }
-
-    /**
-     * Get one propertyGroup.
-     *
-     * @return Response
-     */
-    public function deleteProperty(Request $request)
-    {
-        $name = $request->input('name');
-        $class = $request->input('class');
-
-        $propertyGroup = PropertyGroup::where('name', $name)->where('class', $class)->first();
-
-        if ($propertyGroup) {
-            try {
-                $propertyGroup->delete();
-
-                return response()->json(['message' => 'property group deleted!'], 200);
-            } catch (\Exception $e) {
-
-                return response()->json(['message' => 'property group deletion failed!'], 500);
-            }
-        } else {
-            return response()->json(['message' => 'property group not found!'], 404);
-        }
-    }
-
-    /**
      * Group property subject
      * 
      * The subject $subject 
@@ -456,7 +487,7 @@ class PropertyGroupController extends Controller
     {
         $propertySubjectGroup = Property
             ::select($subject . ' AS name', \DB::raw('count(id) AS count'))
-            ->whereNull('sold');
+            ->whereNull('sold_at');
 
 
         $usersGuard = Auth::guard('users');
@@ -478,6 +509,23 @@ class PropertyGroupController extends Controller
     }
 
     /**
+     * PropertyGroup subject
+     * 
+     * The propertyGroup $propertyGroup
+     * 
+     * @param PropertyGroup $propertyGroup
+     * 
+     * @return void
+     */
+
+    private function _restoreIfTrashed(PropertyGroup $propertyGroup)
+    {
+        if ($propertyGroup->trashed()) {
+            $propertyGroup->restore();
+        }
+    }
+
+    /**
      * Get one propertyGroup.
      * 
      * @param Request $request
@@ -486,31 +534,12 @@ class PropertyGroupController extends Controller
      * 
      * @return PropertyGroup $propertyGroup
      */
-    private function _assembleGroupProperty(Request $request, PropertyGroup $propertyGroup = null)
+    private function _assembleAddPropertyGroup(Request $request, PropertyGroup $propertyGroup = null)
     {
         $propertyGroup || ($propertyGroup = new PropertyGroup);
         $propertyGroup->photo = $request->input('photo');
-        $propertyGroup->photos = $request->input('photos');
-        $propertyGroup->video = $request->input('video');
-        $propertyGroup->main_title = $request->input('main_title');
-        $propertyGroup->side_title = $request->input('side_title');
-        $propertyGroup->heading_title = $request->input('heading_title');
-        $propertyGroup->description_text = $request->input('description_text');
-        $propertyGroup->state = $request->input('state');
-        $propertyGroup->city = $request->input('city');
-        $propertyGroup->suburb = $request->input('suburb');
-        $propertyGroup->type = $request->input('type');
-        $propertyGroup->interior_surface = $request->input('interior_surface');
-        $propertyGroup->exterior_surface = $request->input('exterior_surface');
-        $propertyGroup->features = $request->input('features');
-        $is_exclusive = $request->input('is_exclusive');
-        $is_exclusive && ($propertyGroup->is_exclusive = $is_exclusive);
-        $price = $request->input('price');
-        $price && ($propertyGroup->price = $price);
-        $price_lower_range = $request->input('price_lower_range');
-        $price_lower_range && ($propertyGroup->price_lower_range = $price_lower_range);
-        $price_upper_range = $request->input('price_upper_range');
-        $price_upper_range && ($propertyGroup->price_upper_range = $price_upper_range);
+        $propertyGroup->name = strtolower($request->input('name'));
+        $propertyGroup->class = strtolower($request->input('class'));
 
         return $propertyGroup;
     }
@@ -520,32 +549,57 @@ class PropertyGroupController extends Controller
      * 
      * @param Request $request
      * 
+     * @param PropertyGroup $propertyGroup
+     * 
+     * @return PropertyGroup $propertyGroup
+     */
+    private function _assembleUpdatePropertyGroup(Request $request, PropertyGroup $propertyGroup = null)
+    {
+        $propertyGroup || ($propertyGroup = new PropertyGroup);
+        $photo = $request->input('photo');
+        $photo && ($propertyGroup->photo = $photo);
+        $propertyGroup->name = strtolower($request->input('name'));
+        $propertyGroup->class = strtolower($request->input('class'));
+
+        return $propertyGroup;
+    }
+
+    /**
+     * Get add one propertyGroup.
+     * 
+     * @param Request $request
+     * 
      * @return void
      */
-    private function _propertyGroupValidation(Request $request)
+    private function _addPropertyGroupValidation(Request $request)
     {
         //validate incoming request 
         $validator = $this->validate(
             $request,
             [
                 'photo' => 'required|string|max:100',
-                'photos' => 'required|json',
-                'video' => 'string|max:100',
-                'main_title' => 'required|string|max:150',
-                'side_title' => 'required|string|max:150',
-                'heading_title' => 'required|string|max:150',
-                'description_text' => 'required|string|max:1000',
-                'state' => 'required|string|max:25',
-                'city' => 'required|string|max:35',
-                'suburb' => 'required|string|max:45',
-                'type' => 'required|string|max:25',
-                'interior_surface' => 'required|integer',
-                'exterior_surface' => 'required|integer',
-                'features' => 'required|json',
-                'is_exclusive' => 'boolean',
-                'price' => 'integer',
-                'price_lower_range' => 'integer',
-                'price_upper_range' => 'integer'
+                'name' => 'required|string|max:25',
+                'class' => 'required|string|max:20'
+            ]
+        );
+    }
+
+    /**
+     * Get update one propertyGroup.
+     * 
+     * @param Request $request
+     * 
+     * @return void
+     */
+    private function _updatePropertyGroupValidation(Request $request)
+    {
+        //validate incoming request 
+        $validator = $this->validate(
+            $request,
+            [
+                'photo' => 'string|max:100',
+                'name' => 'required|string|max:25',
+                'class' => 'required|string|max:20'
             ]
         );
     }

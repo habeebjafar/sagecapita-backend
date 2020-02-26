@@ -44,7 +44,7 @@ class PropertyController extends Controller
                 return response()->json(['property' => $property, 'message' => 'CREATED'], 201);
             } catch (\Exception $e) {
                 //return error message
-                return response()->json(['message' => 'Property Creation Failed!'], 409);
+                return response()->json(['message' => 'Property Creation Failed!'], 500);
             }
         } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property data'], 400);
@@ -67,6 +67,7 @@ class PropertyController extends Controller
             $perPage = $request->input('per_page') ?? 4;
             $orderByCol = $request->input('order_by_col');
             $orderByDir = $request->input('order_by_dir');
+            $isExclusive = $request->input('is_exclusive');
             $whereCity = $request->input('city');
             $whereState = $request->input('state');
             $whereSuburb = $request->input('suburb');
@@ -75,6 +76,7 @@ class PropertyController extends Controller
             $wherePrice = null;
 
             $video = !!$request->input('video');
+            $sold = $request->input('sold');
 
             $_price = $request->input('price');
 
@@ -110,8 +112,7 @@ class PropertyController extends Controller
                 }
             }
 
-            $properties = self::selectPropertyLargeThumbnailFields()
-                ->whereNull('sold');
+            $properties = self::selectPropertyLargeThumbnailFields();
 
             $usersGuard = Auth::guard('users');
 
@@ -135,8 +136,33 @@ class PropertyController extends Controller
                 }
             }
 
+            $properties->orderBy('id', 'DESC');
+
+            if ($isExclusive) {
+                switch ($isExclusive) {
+                case '1':
+                        $properties->whereNotNull('is_exclusive');
+                    break;
+                case '2':
+                        $properties->whereNull('is_exclusive');
+                    break;
+                }
+            }
+
             if ($video) {
                 $properties->whereNotNull('video');
+            }
+
+            
+            if ($sold) {
+                switch ($sold) {
+                case '1':
+                        $properties->whereNotNull('sold_at');
+                    break;
+                case '2':
+                        $properties->whereNull('sold_at');
+                    break;
+                }
             }
 
             $whereOrArray = [];
@@ -228,7 +254,7 @@ class PropertyController extends Controller
 
             return response()->json(['properties' =>  $properties->paginate($perPage)], 200);
         } catch (\Exception $e) {
-            echo $e;
+            
             return response()->json(['message' =>  'There\'s is a problem with the input'], 400);
         }
     }
@@ -313,7 +339,7 @@ class PropertyController extends Controller
                     \DB::raw('true AS is_favorite')
                 )
                 ->where('customer_id', $customersAuth->user()->id)
-                ->whereNull('sold');
+                ->whereNull('sold_at');
 
             if ($orderByCol && $orderByDir) {
                 if ($orderByCol === 'price') {
@@ -401,28 +427,34 @@ class PropertyController extends Controller
     {
         try {
             $propertyTopStats = Property::select(
-                \DB::raw('SUM(COALESCE(sold, 0)) AS sold'),
+                \DB::raw('SUM(CASE WHEN sold_at IS NOT NULL THEN 1 ELSE 0 END) AS sold'),
                 \DB::raw('SUM(COALESCE(is_exclusive, 0)) AS exclusive')
             );
 
+            $todayDate = (new \DateTime('now',  new \DateTimeZone('UTC')))->format('Y-m-d');
+            $thisMonthsFirstDate
+                = (new \DateTime('first day of this month', new \DateTimeZone('UTC')))->format('Y-m-d');
+
             $totalTransactions = Property::select(
-                \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS transactions')
+                \DB::raw('SUM(COALESCE(NULLIF(price, 0), price_lower_range, price_upper_range, 0)) AS transactions')
             )
-                ->whereNotNull('sold');
+                ->whereNotNull('sold_at');
 
             $monthsViews = View::select(
                 \DB::raw('COUNT(views.id) AS views')
             )
-                ->whereRaw('MONTH(views.created_at) = ?', [date('n')])
-                ->whereRaw('YEAR(views.created_at) = ?', [date('Y')]);
+                // ->whereRaw('MONTH(views.created_at) = ?', [date('n')])
+                // ->whereRaw('YEAR(views.created_at) = ?', [date('Y')]);
+                ->whereBetween('created_at', [$thisMonthsFirstDate, $todayDate]);
 
             $daysTransactions = Property::select(
-                \DB::raw('SUM(COALESCE(price, 0)) + SUM(COALESCE(price_lower_range, 0)) AS transaction')
+                \DB::raw('SUM(COALESCE(NULLIF(price, 0), price_lower_range, price_upper_range, 0)) AS transaction')
             )
-                ->whereNotNull('sold')
-                ->whereRaw('DAY(created_at) = ?', [date('j')])
-                ->whereRaw('MONTH(created_at) = ?', [date('n')])
-                ->whereRaw('YEAR(created_at) = ?', [date('Y')]);
+                //->whereNotNull('sold_at')
+                // ->whereRaw('DAY(created_at) = ?', [date('j')])
+                // ->whereRaw('MONTH(created_at) = ?', [date('n')])
+                // ->whereRaw('YEAR(created_at) = ?', [date('Y')]);
+                ->whereBetween('sold_at', [$todayDate . ' 00:00:00', $todayDate . ' 23:59:59']);
 
             $user = Auth::guard('users')->user();
 
@@ -456,6 +488,55 @@ class PropertyController extends Controller
             return response()->json(['sold' => +$propertyTopStats->sold, 'exclusive' => +$propertyTopStats->exclusive, 'transactions' => +$totalTransactions->transactions, 'months_views' => $monthsViews->views, 'days_transactions' => +$daysTransactions->transaction], 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Problem getting stats'], 500);
+        }
+    }
+
+    /**
+     * Get properties top stats.
+     *
+     * @return Response
+     */
+    public function get30DaysPerfomance()
+    {
+        try {
+            $unsoldProperties = Property::select(
+                \DB::raw('COUNT(id) AS unsold')
+            )->whereNull('sold_at');
+
+            $nowdate = (new \DateTime('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+            $last30daysDate
+                = (new \DateTime('now', new \DateTimeZone('UTC')))->modify('-30 days')->format('Y-m-d ') . '00:00:00';
+
+            $last30daysViews = View::select(
+                \DB::raw('COUNT(views.id) AS views')
+            )->whereBetween('created_at', [$last30daysDate, $nowdate]);
+
+            $user = Auth::guard('users')->user();
+
+            if ($user->perms !== 0) {
+                $agentId = $user->id;
+
+                $unsoldProperties
+                    ->where('user_id', $agentId);
+
+                $last30daysViews
+                    ->join(
+                        'properties',
+                        function ($join) use ($agentId) {
+                            $join->on('views.property_code', '=', 'properties.code')
+                                ->where('properties.user_id', $agentId);
+                        }
+                    );
+            }
+
+            $unsoldProperties = $unsoldProperties->first();
+            $last30daysViews = $last30daysViews->first();
+
+            $perf = $last30daysViews->views / $unsoldProperties->unsold;
+
+            return response()->json(['perf' => $perf > 7.5 ? $perf > 15 ? 2 : 1 : 0], 200);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Problem getting info'], 500);
         }
     }
 
@@ -511,7 +592,7 @@ class PropertyController extends Controller
     {
         $soldProperties
             = self::selectPropertyGalleryThumbnailFields()
-            ->whereNotNull('sold')
+            ->whereNotNull('sold_at')
             ->latest('id')
             ->paginate(3);
 
@@ -530,7 +611,7 @@ class PropertyController extends Controller
     {
         $recentlyUploadedProperties
             = self::selectPropertyGalleryThumbnailFields()
-            ->whereNull('sold')
+            ->whereNull('sold_at')
             ->latest('id')
             ->paginate(3);
 
@@ -549,7 +630,7 @@ class PropertyController extends Controller
     {
         $mostSeenProperties
             = self::selectPropertyGalleryThumbnailFields()
-            ->whereNull('sold')->latest('views')->paginate(3);
+            ->whereNull('sold_at')->latest('views')->paginate(3);
 
         if ($mostSeenProperties) {
             return response()->json(['properties' => $mostSeenProperties], 200);
@@ -565,7 +646,7 @@ class PropertyController extends Controller
     public function getViewedProperties()
     {
         $viewedProperties
-            = self::selectPropertyThumbnailFields()->whereNull('sold')
+            = self::selectPropertyThumbnailFields()->whereNull('sold_at')
             ->latest('views')->paginate(4);
 
         if ($viewedProperties) {
@@ -634,7 +715,7 @@ class PropertyController extends Controller
     {
         $latestAcquisitions
             = self::selectPropertyThumbnailFields()
-            ->whereNull('sold')->latest('id')->paginate(4);
+            ->whereNull('sold_at')->latest('id')->paginate(4);
 
         if ($latestAcquisitions) {
             return response()->json(['properties' => $latestAcquisitions], 200);
@@ -651,7 +732,7 @@ class PropertyController extends Controller
     {
         $exclusiveProperties
             = self::selectPropertyThumbnailFields()
-            ->whereNull('sold')->where('is_exclusive', '!=', null)->paginate(4);
+            ->whereNull('sold_at')->where('is_exclusive', '!=', null)->paginate(4);
 
         if ($exclusiveProperties) {
             return response()->json(['properties' => $exclusiveProperties], 200);
@@ -667,7 +748,7 @@ class PropertyController extends Controller
     public function getTopSelections()
     {
         $topSelections
-            = self::selectPropertyThumbnailFields()->whereNull('sold')
+            = self::selectPropertyThumbnailFields()->whereNull('sold_at')
             ->latest('views')->latest('inquiries')->paginate(3);
 
         if ($topSelections) {
@@ -682,18 +763,20 @@ class PropertyController extends Controller
      *
      * @return Response
      */
-    public function getProperty($code)
+    public function getProperty(string $code)
     {
-        try {
-            $property = Property::findOrFail($code);
+        $property = Property::join('users', 'properties.user_id', '=', 'users.id')
+            ->select('properties.*', 'users.first_name')
+            ->find($code);
 
-            if (Auth::guard('customers')->check()) {
-                self::incrementViews($property);
-            }
+        if ($property) {
+            //We should increment property count regardless of whether the customer viewing is logged in or not
+            //if (Auth::guard('customers')->check()) {
+            self::incrementViews($property);
+            //}
 
             return response()->json(['property' => $property], 200);
-        } catch (\Exception $e) {
-
+        } else {
             return response()->json(['message' => 'property not found!'], 404);
         }
     }
@@ -708,7 +791,7 @@ class PropertyController extends Controller
     {
         $properties
             = Property::select(\DB::raw('count(id) AS count'))
-            ->whereNull('sold')
+            ->whereNull('sold_at')
             ->first();
 
         if ($properties) {
@@ -751,6 +834,134 @@ class PropertyController extends Controller
             }
         } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property data'], 400);
+        }
+    }
+
+    /**
+     * Update property video.
+     * 
+     * @param String  $code    - property code
+     *
+     * @param Request $request - hyyyyy
+     * 
+     * @return Response
+     */
+    public function updatePropertyVideo($code, Request $request)
+    {
+        try {
+            self::updatePropertyVideoValidation($request);
+
+            try {
+                $property = Property::findOrFail($code);
+
+                try {
+                    $property = self::assemblePropertyVideo($request, $property);
+
+                    $property->save();
+
+                    return response()->json(['property' => $property], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'property video update failed!'], 500);
+                }
+            } catch (\Exception $e) {
+
+                return response()->json(['message' => 'property video not found!'], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property video data'], 400);
+        }
+    }
+
+    /**
+     * Update property brochure.
+     * 
+     * @param String  $code    - property code
+     *
+     * @param Request $request - hyyyyy
+     * 
+     * @return Response
+     */
+    public function updatePropertyBrochure($code, Request $request)
+    {
+        try {
+            self::updatePropertyBrochureValidation($request);
+
+            try {
+                $property = Property::findOrFail($code);
+
+                try {
+                    $property = self::assemblePropertyBrochure($request, $property);
+
+                    $property->save();
+
+                    return response()->json(['property' => $property], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'property brochure update failed!'], 500);
+                }
+            } catch (\Exception $e) {
+
+                return response()->json(['message' => 'property brochure not found!'], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property brochure data'], 400);
+        }
+    }
+
+    /**
+     * Update property sold.
+     * 
+     * @param String  $code    - property code
+     * 
+     * @return Response
+     */
+    public function updatePropertySold($code)
+    {
+        try {
+            $property = Property::findOrFail($code);
+
+            try {
+                $property->sold_at = gmdate("Y-m-d H:i:s");
+
+                $property->save();
+
+                return response()->json(['property' => $property], 200);
+            } catch (\Exception $e) {
+
+                return response()->json(['message' => 'property sold update failed!'], 500);
+            }
+        } catch (\Exception $e) {
+
+            return response()->json(['message' => 'property sold not found!'], 404);
+        }
+    }
+
+    /**
+     * Update property unsold.
+     * 
+     * @param String  $code    - property code
+     * 
+     * @return Response
+     */
+    public function updatePropertyUnsold($code)
+    {
+        try {
+            $property = Property::findOrFail($code);
+
+            try {
+                $property->sold_at = null;
+
+                $property->save();
+
+                return response()->json(['property' => $property], 200);
+            } catch (\Exception $e) {
+
+                return response()->json(['message' => 'property unsold update failed!'], 500);
+            }
+        } catch (\Exception $e) {
+
+            return response()->json(['message' => 'property unsold not found!'], 404);
         }
     }
 
@@ -817,7 +1028,7 @@ class PropertyController extends Controller
         $options = ['path' => url('api/' . $routeName)];
         $topProperties
             = Property::select($column . ' AS name', \DB::raw('(SUM(COALESCE(views, 0)) + SUM(COALESCE(inquiries, 0))) AS sumOfRequests'), \DB::raw('count(id) AS count'))
-            ->whereNull('sold')
+            ->whereNull('sold_at')
             ->orderBy('sumOfRequests', 'DESC')
             ->groupBy('name')
             ->get();
@@ -893,6 +1104,7 @@ class PropertyController extends Controller
             \DB::raw('CASE WHEN price IS NOT NULL THEN price ELSE price_upper_range END AS max_price'),
             'city',
             'updated_at',
+            'sold_at',
             'type'
         );
     }
@@ -916,6 +1128,8 @@ class PropertyController extends Controller
         $photos && ($property->photos = $request->input('photos'));
         $video = $request->input('video');
         $video && ($property->video = $request->input('video'));
+        $brochure = $request->input('brochure');
+        $brochure && ($property->brochure = $request->input('brochure'));
         $property->main_title = $request->input('main_title');
         $property->side_title = $request->input('side_title');
         $property->heading_title = $request->input('heading_title');
@@ -940,6 +1154,22 @@ class PropertyController extends Controller
         return $property;
     }
 
+    private function assemblePropertyVideo(Request $request, Property $property = null)
+    {
+        $property || ($property = new Property);
+        $property->video = $request->input('video');
+
+        return $property;
+    }
+
+    private function assemblePropertyBrochure(Request $request, Property $property = null)
+    {
+        $property || ($property = new Property);
+        $property->brochure = $request->input('brochure');
+
+        return $property;
+    }
+
     private function createPropertyValidation(Request $request)
     {
         //validate incoming request 
@@ -947,6 +1177,7 @@ class PropertyController extends Controller
             'photo' => 'required|string|max:100',
             'photos' => 'required|json',
             'video' => 'string|max:100',
+            'brochure' => 'string|max:100',
             'main_title' => 'required|string|max:150',
             'side_title' => 'required|string|max:150',
             'heading_title' => 'required|string|max:150',
@@ -966,6 +1197,22 @@ class PropertyController extends Controller
         ]);
     }
 
+    private function updatePropertyVideoValidation(Request $request)
+    {
+        //validate incoming request 
+        $validator = $this->validate($request, [
+            'video' => 'string|max:100'
+        ]);
+    }
+
+    private function updatePropertyBrochureValidation(Request $request)
+    {
+        //validate incoming request 
+        $validator = $this->validate($request, [
+            'brochure' => 'string|max:100'
+        ]);
+    }
+
     private function updatePropertyValidation(Request $request)
     {
         //validate incoming request 
@@ -973,6 +1220,7 @@ class PropertyController extends Controller
             'photo' => 'string|max:100',
             'photos' => 'json',
             'video' => 'string|max:100',
+            'brochure' => 'string|max:100',
             'main_title' => 'required|string|max:150',
             'side_title' => 'required|string|max:150',
             'heading_title' => 'required|string|max:150',

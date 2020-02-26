@@ -49,7 +49,7 @@ class Handler extends ExceptionHandler
         if ($exception instanceof NotFoundHttpException) {
             return response()->json(['message' => 'Not Found'], 404);
         }
-
+echo $exception;
         //return parent::render($request, $exception);
         return response()->json(['message' => 'Internal Server Error'], 500);
     }

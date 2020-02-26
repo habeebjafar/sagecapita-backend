@@ -15,6 +15,9 @@ class MainGalleryPhoto extends Model implements AuthenticatableContract, Authori
 {
     use Authenticatable, Authorizable, UsesAuthedExclusive, SoftDeletes;
 
+    protected $primaryKey = null;
+    public $incrementing = false;
+
     protected $table = 'main_gallery_photo';
 
     /**

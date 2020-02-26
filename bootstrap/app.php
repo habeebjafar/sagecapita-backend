@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__.'/../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
 (new Laravel\Lumen\Bootstrap\LoadEnvironmentVariables(
     dirname(__DIR__)
@@ -46,6 +46,13 @@ $app->singleton(
     App\Console\Kernel::class
 );
 
+$app->configure('mail');
+$app->alias('mailer', Illuminate\Mail\Mailer::class);
+$app->alias('mailer', Illuminate\Contracts\Mail\Mailer::class);
+$app->alias('mailer', Illuminate\Contracts\Mail\MailQueue::class);
+
+$app->configure('services');
+
 /*
 |--------------------------------------------------------------------------
 | Register Middleware
@@ -61,14 +68,18 @@ $app->singleton(
 //     App\Http\Middleware\ExampleMiddleware::class
 // ]);
 
-$app->routeMiddleware([
-    'auth' => App\Http\Middleware\Authenticate::class,
-]);
+$app->routeMiddleware(
+    [
+        'auth' => App\Http\Middleware\Authenticate::class,
+    ]
+);
 
-$app->middleware([
-   // App\Http\Middleware\CorsMiddleware::class
-   \Fruitcake\Cors\HandleCors::class,
- ]);
+$app->middleware(
+    [
+        // App\Http\Middleware\CorsMiddleware::class
+        \Fruitcake\Cors\HandleCors::class,
+    ]
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -88,6 +99,9 @@ $app->register(App\Providers\AuthServiceProvider::class);
 // $app->register(App\Providers\EventServiceProvider::class);
 $app->register(Tymon\JWTAuth\Providers\LumenServiceProvider::class);
 $app->register(Propaganistas\LaravelPhone\PhoneServiceProvider::class);
+$app->register(Illuminate\Mail\MailServiceProvider::class);
+$app->register(Illuminate\Auth\Passwords\PasswordResetServiceProvider::class);
+$app->register(Illuminate\Notifications\NotificationServiceProvider::class);
 
 /*
 |--------------------------------------------------------------------------
@@ -100,10 +114,13 @@ $app->register(Propaganistas\LaravelPhone\PhoneServiceProvider::class);
 |
 */
 
-$app->router->group([
-    'namespace' => 'App\Http\Controllers',
-], function ($router) {
-    require __DIR__.'/../routes/web.php';
-});
+$app->router->group(
+    [
+        'namespace' => 'App\Http\Controllers',
+    ],
+    function ($router) {
+        require __DIR__ . '/../routes/web.php';
+    }
+);
 
 return $app;

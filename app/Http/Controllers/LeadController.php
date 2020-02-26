@@ -86,7 +86,7 @@ class LeadController extends Controller
                     \DB::rollBack();
 
                     //return error message
-                    return response()->json(['message' => 'Lead Creation Failed!'], 409);
+                    return response()->json(['message' => 'Lead Creation Failed!'], 500);
                 }
             }
         } catch (\Exception $e) {
@@ -464,7 +464,7 @@ class LeadController extends Controller
                     self::_incrementInquiries($message->property_code);
                 }
             } catch (\Exception $e) {
-                throw new \Exception(json_encode(['result' => ['message' => 'Message Creation Failed!'], 'status' => 409]));
+                throw new \Exception(json_encode(['result' => ['message' => 'Message Creation Failed!'], 'status' => 500]));
             }
         } catch (\Exception $e) {
             throw new \Exception(json_encode(['result' => ['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the lead data'], 'status' => 400]));

@@ -52,27 +52,38 @@ class HomeCarouselController extends Controller
      */
     public function getHomeCarousels()
     {
-        // TODO: use the query string to select the search criteria, result lenght, result page
+        // TODO: use the query string to select the search criteria, result length, result page
         return response()->json(['home_carousels' =>  self::_homeCarouselPropertiesJoin()->get()], 200);
+    }
+
+    /**
+     * Get all HomeCarousel.
+     *
+     * @return Response
+     */
+    public function getJustHomeCarousels()
+    {
+        // TODO: use the query string to select the search criteria, result length, result page
+        return response()->json(['home_carousels' =>  HomeCarousel::all()], 200);
     }
 
     /**
      * Update HomeCarousel.
      *
-     * @param Request $request
+     * @param int $id
+     * 
+     * @param Request $request 
      * 
      * @return Response
      */
-    public function updateHomeCarousel(Request $request)
+    public function updateHomeCarousel(int $id, Request $request)
     {
         try {
             self::_homeCarouselValidation($request);
 
-            $propertyCode = $request->input('property_code');
+            try {
+                $homeCarousel = HomeCarousel::findOrFail($id);
 
-            $homeCarousel = HomeCarousel::where('property_code', $propertyCode)->first();
-
-            if ($homeCarousel) {
                 try {
                     $homeCarousel = self::_assembleHomeCarousel($request, $homeCarousel);
 
@@ -83,7 +94,7 @@ class HomeCarouselController extends Controller
 
                     return response()->json(['message' => 'Home carousel update failed!'], 500);
                 }
-            } else {
+            } catch (\Exception $e) {
                 return response()->json(['message' => 'Home carousel not found!'], 404);
             }
         } catch (\Exception $e) {
@@ -156,19 +167,21 @@ class HomeCarouselController extends Controller
         $MAX_MESSAGE_LENGTH = 60;
 
         return HomeCarousel::join('properties', 'home_carousel.property_code', '=', 'properties.code')
-        ->select(
-            'properties.code AS code',
-            'properties.video AS video',
-            'properties.interior_surface AS interior_surface',
-            'properties.photo AS photo',
-            'properties.main_title AS main_title',
-            \DB::raw('(select case when length(properties.description_text) > ' . $MAX_MESSAGE_LENGTH . ' then concat(substring(properties.description_text, 1, ' . $MAX_MESSAGE_LENGTH . '), \'...\') else properties.description_text end) as description_text'),
-            'properties.price AS price',
-            'properties.price_upper_range AS price_upper_range',
-            'properties.price_lower_range AS price_lower_range',
-            'properties.is_exclusive AS is_exclusive',
-            'properties.city AS city',
-            'properties.type AS type'
-        );
+            ->select(
+                'properties.code AS code',
+                'properties.video AS video',
+                'properties.interior_surface AS interior_surface',
+                'properties.photo AS photo',
+                'properties.main_title AS main_title',
+                \DB::raw('(select case when length(properties.description_text) > ' . $MAX_MESSAGE_LENGTH . ' then concat(substring(properties.description_text, 1, ' . $MAX_MESSAGE_LENGTH . '), \'...\') else properties.description_text end) as description_text'),
+                'properties.price AS price',
+                'properties.price_upper_range AS price_upper_range',
+                'properties.price_lower_range AS price_lower_range',
+                'properties.is_exclusive AS is_exclusive',
+                'properties.city AS city',
+                'properties.state AS state',
+                'properties.suburb AS suburb',
+                'properties.type AS type'
+            );
     }
 }

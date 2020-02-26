@@ -62,6 +62,88 @@ $router->group(
         // Matches "/api/customer_login
         $router->post('customer_login', 'AuthCustomerController@login');
 
+        // Matches "/api/customers
+        $router->post(
+            'customers',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@createCustomer'
+            ]
+        );
+
+        // Matches "/api/customers/1 
+        //get one customer by id
+        $router->get(
+            'customers/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@singleCustomer'
+            ]
+        );
+
+        // Matches "/api/customers
+        $router->get(
+            'customers',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@allCustomers'
+            ]
+        );
+
+        // Matches "/api/suspended_customers_count
+        $router->get(
+            'suspended_customers_count',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@suspendedCustomersCount'
+            ]
+        );
+
+        // Matches "/api/customers/1
+        $router->put(
+            'customers/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@updateCustomer'
+            ]
+        );
+
+        // Matches "/api/customers/1
+        $router->put(
+            'suspend_customer/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@suspendCustomer'
+            ]
+        );
+
+        // Matches "/api/customers/1
+        $router->put(
+            'unsuspend_customer/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@unsuspendCustomer'
+            ]
+        );
+
+        // Matches "/api/customers/1
+        $router->put(
+            'change_password/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@changeCustomerPassword'
+            ]
+        );
+
+        // Matches "/api/customers/1
+        $router->delete(
+            'customers/{id}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'CustomerController@deleteCustomer'
+            ]
+        );
+
         // Matches "/api/property
         $router->post(
             'property',
@@ -140,6 +222,15 @@ $router->group(
             ]
         );
 
+        // Matches "/api/get_30_days_perfomance
+        $router->get(
+            'get_30_days_perfomance',
+            [
+                'middleware' => 'auth:users',
+                'uses' => 'PropertyController@get30DaysPerfomance'
+            ]
+        );
+
         // Matches "/api/properties_top_stats
         $router->get(
             'properties_top_stats',
@@ -155,6 +246,42 @@ $router->group(
             [
                 'middleware' => 'auth',
                 'uses' => 'PropertyController@updateProperty'
+            ]
+        );
+
+        // Matches "/api/property_video/1
+        $router->put(
+            'property_video/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@updatePropertyVideo'
+            ]
+        );
+
+        // Matches "/api/property_brochure/1
+        $router->put(
+            'property_brochure/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@updatePropertyBrochure'
+            ]
+        );
+
+        // Matches "/api/property_sold/1
+        $router->put(
+            'property_sold/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@updatePropertySold'
+            ]
+        );
+
+        // Matches "/api/property_unsold/1
+        $router->put(
+            'property_unsold/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyController@updatePropertyUnsold'
             ]
         );
 
@@ -290,6 +417,51 @@ $router->group(
             ]
         );
 
+        // Matches "/api/property_group
+        $router->post(
+            'property_group',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyGroupController@createPropertyGroup'
+            ]
+        );
+
+        // Matches "/api/property_group
+        $router->get(
+            'property_group',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyGroupController@getPropertyGroups'
+            ]
+        );
+
+        // Matches "/api/get_property_group
+        $router->get(
+            'get_property_group',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyGroupController@getPropertyGroup'
+            ]
+        );
+
+        // Matches "/api/property_group
+        $router->put(
+            'property_group',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyGroupController@updatePropertyGroup'
+            ]
+        );
+
+        // Matches "/api/property
+        $router->delete(
+            'property_group',
+            [
+                'middleware' => 'auth',
+                'uses' => 'PropertyGroupController@deletePropertyGroup'
+            ]
+        );
+
         // Matches "/api/message/1
         $router->get(
             'message/{code}',
@@ -393,8 +565,17 @@ $router->group(
         $router->get('home_carousel', 'HomeCarouselController@getHomeCarousels');
 
         // Matches "/api/home_carousel
+        $router->get(
+            'home_carousels',
+            [
+                'middleware' => 'auth',
+                'uses' => 'HomeCarouselController@getJustHomeCarousels'
+            ]
+        );
+
+        // Matches "/api/home_carousel/1
         $router->put(
-            'home_carousel',
+            'home_carousel/{id}',
             [
                 'middleware' => 'auth',
                 'uses' => 'HomeCarouselController@updateHomeCarousel'
@@ -425,6 +606,12 @@ $router->group(
             'MainGalleryPhotoController@getMainGalleryPhoto'
         );
 
+        // Matches "/api/main_gallery_photos
+        $router->get(
+            'main_gallery_photos',
+            'MainGalleryPhotoController@getJustMainGalleryPhoto'
+        );
+
         // Matches "/api/main_gallery_photo
         $router->put(
             'main_gallery_photo',
@@ -441,6 +628,34 @@ $router->group(
                 'middleware' => 'auth',
                 'uses' => 'MainGalleryPhotoController@deleteMainGalleryPhoto'
             ]
+        );
+
+        // Matches "/api/joinus
+        $router->post(
+            'joinus',
+            'ContactController@createJoinus'
+        );
+
+        // Matches "/api/newsletter_signup
+        $router->post(
+            'newsletter_signup',
+            'ContactController@createNewsletterSignup'
+        );
+
+        // Matches "/api/media_request
+        $router->post(
+            'media_request',
+            'ContactController@createMediaRequest'
+        );
+
+        $router->post(
+            '/password/reset-request',
+            'RequestPasswordController@sendResetLinkEmail'
+        );
+
+        $router->post(
+            '/password/reset',
+            ['as' => 'password.reset', 'uses' => 'ResetPasswordController@reset']
         );
     }
 );

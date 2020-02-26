@@ -35,7 +35,7 @@ class NewsController extends Controller
 
                 return response()->json(['news' => $news, 'message' => 'CREATED'], 201);
             } catch (\Exception $e) {
-                return response()->json(['message' => 'News Creation Failed!'], 409);
+                return response()->json(['message' => 'News Creation Failed!'], 500);
             }
         } catch (\Exception $e) {
             return response()->json(['result' => ['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the news data']], 400);
@@ -154,7 +154,7 @@ class NewsController extends Controller
 
                     return response()->json(['news' => $news, 'message' => 'UPDATED'], 200);
                 } catch (\Exception $e) {
-                    return response()->json(['message' => 'News Update Failed!'], 409);
+                    return response()->json(['message' => 'News Update Failed!'], 500);
                 }
             } catch (\Exception $e) {
 

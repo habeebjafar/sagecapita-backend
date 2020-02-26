@@ -39,7 +39,7 @@ class HomeCarousel extends Model implements AuthenticatableContract, Authorizabl
      * @var array
      */
     protected $hidden = [
-        'id', 'created_at', 'deleted_at', 'updated_at'
+        'created_at', 'deleted_at', 'updated_at'
     ];
 
     /**

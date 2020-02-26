@@ -40,7 +40,23 @@ class UserController extends Controller
 
                     return response()->json(['user' => $user, 'message' => 'CREATED'], 201);
                 } catch (\Exception $e) {
-                    return response()->json(['message' => 'User Creation Failed!'], 409);
+                    try {
+                        if ($e->getCode() === '23000') {
+                            // user already exists, go ahead and save message
+                            $deletedUser = User::withTrashed()
+                                ->where('email', $user->email)
+                                ->where('phone', $user->phone)
+                                ->first();
+
+                            self::_restoreIfTrashed($deletedUser);
+
+                            $user->save();
+                        }
+
+                        throw new \Exception($e->getMessage(), $e->getCode());
+                    } catch (\Exception $e) {
+                        return response()->json(['message' => 'User Creation Failed!'], 500);
+                    }
                 }
             } catch (\Exception $e) {
                 return response()->json(['result' => ['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the user data']], 400);
@@ -91,12 +107,18 @@ class UserController extends Controller
     public function singleUser($id)
     {
         try {
-            $user = User::findOrFail($id);
+            self::_throwUnauthorizedException();
 
-            return response()->json(['user' => $user], 200);
-        } catch (\Exception $e) {
+            try {
+                $user = User::findOrFail($id);
 
-            return response()->json(['user' => 'user not found!'], 404);
+                return response()->json(['user' => $user], 200);
+            } catch (\Exception $e) {
+
+                return response()->json(['user' => 'user not found!'], 404);
+            }
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -124,6 +146,10 @@ class UserController extends Controller
 
                         return response()->json(['user' => $user, 'message' => 'UPDATED'], 200);
                     } catch (\Exception $e) {
+                        if ($e->getCode() === '23000') {
+                            return response()->json(['message' => 'Some information were duplicates!'], 409);
+                        }
+
                         return response()->json(['message' => 'User Update Failed!'], 409);
                     }
                 } catch (\Exception $e) {
@@ -177,7 +203,7 @@ class UserController extends Controller
     {
         try {
             self::_throwUnauthorizedException();
-            
+
             try {
                 $user = User::findOrFail($userId);
 
@@ -263,6 +289,23 @@ class UserController extends Controller
     }
 
     /**
+     * User subject
+     * 
+     * The user $user 
+     * 
+     * @param User $user
+     * 
+     * @return void
+     */
+
+    private function _restoreIfTrashed(User $user)
+    {
+        if ($user->trashed()) {
+            $user->restore();
+        }
+    }
+
+    /**
      * Assemble one user.
      * 
      * @param Request $request
@@ -330,7 +373,7 @@ class UserController extends Controller
     }
 
     /**
-     * Get one lead.
+     * Get one user.
      * 
      * @param Request $request
      * 
@@ -364,7 +407,7 @@ class UserController extends Controller
     }
 
     /**
-     * Get one lead.
+     * Get one user.
      * 
      * @param Request $request
      * 

@@ -30,7 +30,7 @@ class AuthCustomerController extends Controller
                     'language' => 'required|string:size:2',
                     'city' => 'required|string:max:255',
                     'profession' => 'required|string:max:255',
-                    'password' => 'required|confirmed',
+                    'password' => 'required|min:8|confirmed',
                     'ip_address' => 'ip',
                     'user_agent' => 'string',
                     'referrer_page' => 'string',
@@ -108,7 +108,7 @@ class AuthCustomerController extends Controller
 
                 $customersAuth = Auth::guard('customers');
         
-                if (!$token = $customersAuth->attempt($credentials)) {
+                if (!$token = $customersAuth->attempt($credentials, true)) {
                     return response()->json(['message' => 'Unauthorized'], 401);
                 }
         

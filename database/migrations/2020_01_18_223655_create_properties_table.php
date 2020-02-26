@@ -23,6 +23,7 @@ class CreatePropertiesTable extends Migration
             $table->string('photo', 100)->charset('ascii');
             $table->json('photos');// must not give charset type to json type
             $table->string('video', 100)->charset('ascii')->nullable();
+            $table->string('brochure', 100)->charset('ascii')->nullable();
             $table->string('main_title', 80)->charset('utf8');
             $table->string('side_title', 80)->charset('utf8');
             $table->string('heading_title', 80)->charset('utf8');

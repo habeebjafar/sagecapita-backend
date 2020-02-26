@@ -36,7 +36,7 @@ class PropertyGroup extends Model implements AuthenticatableContract, Authorizab
     //  * @var array
     //  */
     protected $hidden = [
-        'id', 'hash', 'created_at', 'deleted_at', 'updated_at'
+        'id', 'hash', 'deleted_at'
     ];
 
     /**

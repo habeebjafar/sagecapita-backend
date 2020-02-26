@@ -38,22 +38,32 @@ class MainGalleryPhotoController extends Controller
                 return response()->json(['main_gallery_photo' => $mainGalleryPhoto, 'message' => 'CREATED'], 201);
             } catch (\Exception $e) {
                 //return error message
-                return response()->json(['message' => 'Home carousel Creation Failed!'], 500);
+                return response()->json(['message' => 'Main gallery Creation Failed!'], 500);
             }
         } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the home carousel data'], 400);
+            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the main gallery data'], 400);
         }
     }
 
+    // /**
+    //  * Get all MainGalleryPhoto.
+    //  *
+    //  * @return Response
+    //  */
+    // public function getMainGalleryPhotos()
+    // {
+    //     // TODO: use the query string to select the search criteria, result lenght, result page
+    //     return response()->json(['main_gallery_photos' =>  self::_mainPhotoGalleryPropertiesJoin()->get()], 200);
+    // }
+
     /**
-     * Get all MainGalleryPhoto.
+     * Get all HomeCarousel.
      *
      * @return Response
      */
-    public function getMainGalleryPhotos()
+    public function getJustMainGalleryPhoto()
     {
-        // TODO: use the query string to select the search criteria, result lenght, result page
-        return response()->json(['main_gallery_photos' =>  self::_mainPhotoGalleryPropertiesJoin()->get()], 200);
+        return response()->json(['main_gallery_photo' =>  MainGalleryPhoto::first()], 200);
     }
 
     /**
@@ -78,23 +88,21 @@ class MainGalleryPhotoController extends Controller
         try {
             self::_mainGalleryPhotoValidation($request);
 
-            $propertyCode = $request->input('property_code');
-
-            $mainGalleryPhoto = MainGalleryPhoto::where('property_code', $propertyCode)->first();
+            $mainGalleryPhoto = MainGalleryPhoto::first();
 
             if ($mainGalleryPhoto) {
                 try {
-                    $mainGalleryPhoto = self::_assembleMainGalleryPhoto($request, $mainGalleryPhoto);
+                    $mainGalleryPhoto
+                        = self::_assembleMainGalleryPhoto($request, $mainGalleryPhoto);
 
                     $mainGalleryPhoto->save();
 
                     return response()->json(['main_gallery_photo' => $mainGalleryPhoto], 200);
                 } catch (\Exception $e) {
-
-                    return response()->json(['message' => 'Home carousel update failed!'], 500);
+                    return response()->json(['message' => 'Main gallery photo update failed!'], 500);
                 }
             } else {
-                return response()->json(['message' => 'Home carousel not found!'], 404);
+                return response()->json(['message' => 'Main gallery photo not found!'], 404);
             }
         } catch (\Exception $e) {
             return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the Home carousel data'], 400);
@@ -102,7 +110,7 @@ class MainGalleryPhotoController extends Controller
     }
 
     /**
-     * Get one MainGalleryPhoto.
+     * Delete one MainGalleryPhoto.
      *
      * @return Response
      */
@@ -110,7 +118,9 @@ class MainGalleryPhotoController extends Controller
     {
         $propertyCode = $request->input('property_code');
 
-        $mainGalleryPhoto = MainGalleryPhoto::where('property_code', $propertyCode)->first();
+        $mainGalleryPhoto
+            = MainGalleryPhoto::where('property_code', $propertyCode)
+            ->first();
 
         if ($mainGalleryPhoto) {
             try {
@@ -166,19 +176,19 @@ class MainGalleryPhotoController extends Controller
         $MAX_MESSAGE_LENGTH = 60;
 
         return MainGalleryPhoto::join('properties', 'main_gallery_photo.property_code', '=', 'properties.code')
-        ->select(
-            'properties.code AS code',
-            'properties.video AS video',
-            'properties.interior_surface AS interior_surface',
-            'properties.photo AS photo',
-            'properties.main_title AS main_title',
-            \DB::raw('(select case when length(properties.description_text) > ' . $MAX_MESSAGE_LENGTH . ' then concat(substring(properties.description_text, 1, ' . $MAX_MESSAGE_LENGTH . '), \'...\') else properties.description_text end) as description_text'),
-            'properties.price AS price',
-            'properties.price_upper_range AS price_upper_range',
-            'properties.price_lower_range AS price_lower_range',
-            'properties.is_exclusive AS is_exclusive',
-            'properties.city AS city',
-            'properties.type AS type'
-        );
+            ->select(
+                'properties.code AS code',
+                'properties.video AS video',
+                'properties.interior_surface AS interior_surface',
+                'properties.photo AS photo',
+                'properties.main_title AS main_title',
+                \DB::raw('(select case when length(properties.description_text) > ' . $MAX_MESSAGE_LENGTH . ' then concat(substring(properties.description_text, 1, ' . $MAX_MESSAGE_LENGTH . '), \'...\') else properties.description_text end) as description_text'),
+                'properties.price AS price',
+                'properties.price_upper_range AS price_upper_range',
+                'properties.price_lower_range AS price_lower_range',
+                'properties.is_exclusive AS is_exclusive',
+                'properties.city AS city',
+                'properties.type AS type'
+            );
     }
 }
