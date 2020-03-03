@@ -1156,7 +1156,10 @@ class PropertyController extends Controller
 
         if ($price) {
             $property->price = $price;
+            $property->price_lower_range = null;
+            $property->price_upper_range = null;
         } else {
+            $property->price = null;
             $property->price_lower_range = $price_lower_range;
             $property->price_upper_range = $price_upper_range;
         }
