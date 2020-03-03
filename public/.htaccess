@@ -3,6 +3,12 @@
         Options -MultiViews -Indexes
     </IfModule>
 
+    <IfModule mod_headers.c>
+        SetEnvIf Origin "http(s)?://([^.]+\.)?(sagecapita.com|sagecapitadmin.netlify.com|localhost:4200|localhost)$" AccessControlAllowOrigin=$0$1
+        Header add Access-Control-Allow-Origin %{AccessControlAllowOrigin}e env=AccessControlAllowOrigin
+        Header set Access-Control-Allow-Credentials true
+    </IfModule>
+
     RewriteEngine On
 
     # Handle Authorization Header

@@ -9,10 +9,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use App\Traits\UsesAuthedExclusive;
 
-class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
+class HomeCarousel extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
-    use Authenticatable, Authorizable, SoftDeletes;
+    use Authenticatable, Authorizable, UsesAuthedExclusive, SoftDeletes;
+
+    protected $table = 'home_carousel';
 
     /**
      * The attributes that should be mutated to dates.
@@ -27,7 +30,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @var array
      */
     protected $fillable = [
-        'first_name', 'last_name', 'email', 'phone',
+        'property_code'
     ];
 
     /**
@@ -36,7 +39,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @var array
      */
     protected $hidden = [
-        'password',
+        'created_at', 'deleted_at', 'updated_at'
     ];
 
     /**
@@ -48,6 +51,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     {
         return $this->getKey();
     }
+
 
     /**
      * Return a key value array, containing any custom claims to be added to the JWT.

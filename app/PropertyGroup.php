@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
+class PropertyGroup extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
     use Authenticatable, Authorizable, SoftDeletes;
 
@@ -27,16 +27,16 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @var array
      */
     protected $fillable = [
-        'first_name', 'last_name', 'email', 'phone',
+        'photo', 'name', 'class'
     ];
 
-    /**
-     * The attributes excluded from the model's JSON form.
-     *
-     * @var array
-     */
+    // /**
+    //  * The attributes excluded from the model's JSON form.
+    //  *
+    //  * @var array
+    //  */
     protected $hidden = [
-        'password',
+        'id', 'hash', 'deleted_at'
     ];
 
     /**

@@ -29,7 +29,7 @@ class CreateUsersTable extends Migration
                 $table->ipAddress('ip_address')->charset('ascii')->nullable();
                 $table->text('user_agent')->charset('ascii')->nullable();
                 $table->text('referrer_page')->charset('ascii')->nullable();
-                $table->string('language')->charset('utf8')->nullable();
+                $table->char('lang', 5)->charset('ascii')->nullable();
                 $table->string('os')->charset('ascii')->nullable();
                 $table->smallInteger('screen_width')->unsigned()->nullable();
                 $table->smallInteger('screen_height')->unsigned()->nullable();

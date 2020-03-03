@@ -6,8 +6,14 @@
     "type": "project",
     "require": {
         "php": "^7.2",
+        "doctrine/dbal": "^2.10",
+        "fruitcake/laravel-cors": "^1.0",
+        "illuminate/mail": "^6.16",
+        "illuminate/notifications": "^6.16",
         "laravel/lumen-framework": "^6.0",
+        "moontoast/math": "^1.2",
         "propaganistas/laravel-phone": "^4.2",
+        "ramsey/uuid": "^3.9",
         "tymon/jwt-auth": "dev-develop"
     },
     "require-dev": {

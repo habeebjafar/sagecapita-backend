@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
+class Favorite extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
     use Authenticatable, Authorizable, SoftDeletes;
 
@@ -27,7 +27,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @var array
      */
     protected $fillable = [
-        'first_name', 'last_name', 'email', 'phone',
+        'property_id', 'customer_id'
     ];
 
     /**
@@ -36,7 +36,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @var array
      */
     protected $hidden = [
-        'password',
+        'id', 'created_at', 'deleted_at', 'updated_at'
     ];
 
     /**
@@ -48,6 +48,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     {
         return $this->getKey();
     }
+
 
     /**
      * Return a key value array, containing any custom claims to be added to the JWT.

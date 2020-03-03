@@ -6,20 +6,15 @@ use Illuminate\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use App\Traits\AuthedCustomerId;
 
-class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
+class View extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
 {
-    use Authenticatable, Authorizable, SoftDeletes;
+    use Authenticatable, Authorizable, AuthedCustomerId;
 
-    /**
-     * The attributes that should be mutated to dates.
-     *
-     * @var array
-     */
-    protected $dates = ['deleted_at'];
+    public $timestamps = false;
 
     /**
      * The attributes that are mass assignable.
@@ -27,17 +22,17 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @var array
      */
     protected $fillable = [
-        'first_name', 'last_name', 'email', 'phone',
+        'property_code'
     ];
 
-    /**
-     * The attributes excluded from the model's JSON form.
-     *
-     * @var array
-     */
-    protected $hidden = [
-        'password',
-    ];
+    // /**
+    //  * The attributes excluded from the model's JSON form.
+    //  *
+    //  * @var array
+    //  */
+    // protected $hidden = [
+        
+    // ];
 
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.
@@ -48,6 +43,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     {
         return $this->getKey();
     }
+
 
     /**
      * Return a key value array, containing any custom claims to be added to the JWT.

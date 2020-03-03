@@ -9,10 +9,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Lumen\Auth\Authorizable;
 use Tymon\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 
-class User extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject
+class Customer extends Model implements AuthenticatableContract, AuthorizableContract, JWTSubject, CanResetPasswordContract
 {
-    use Authenticatable, Authorizable, SoftDeletes;
+    use Authenticatable, Authorizable, SoftDeletes, Notifiable, CanResetPassword;
 
     /**
      * The attributes that should be mutated to dates.
@@ -36,7 +39,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      * @var array
      */
     protected $hidden = [
-        'password',
+        'password', 'remember_token',
     ];
 
     /**
