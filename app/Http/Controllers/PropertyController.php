@@ -140,12 +140,12 @@ class PropertyController extends Controller
 
             if ($isExclusive) {
                 switch ($isExclusive) {
-                case '1':
+                    case '1':
                         $properties->whereNotNull('is_exclusive');
-                    break;
-                case '2':
+                        break;
+                    case '2':
                         $properties->whereNull('is_exclusive');
-                    break;
+                        break;
                 }
             }
 
@@ -153,15 +153,15 @@ class PropertyController extends Controller
                 $properties->whereNotNull('video');
             }
 
-            
+
             if ($sold) {
                 switch ($sold) {
-                case '1':
+                    case '1':
                         $properties->whereNotNull('sold_at');
-                    break;
-                case '2':
+                        break;
+                    case '2':
                         $properties->whereNull('sold_at');
-                    break;
+                        break;
                 }
             }
 
@@ -254,7 +254,7 @@ class PropertyController extends Controller
 
             return response()->json(['properties' =>  $properties->paginate($perPage)], 200);
         } catch (\Exception $e) {
-            
+
             return response()->json(['message' =>  'There\'s is a problem with the input'], 400);
         }
     }
@@ -445,7 +445,7 @@ class PropertyController extends Controller
             )
                 // ->whereRaw('MONTH(views.created_at) = ?', [date('n')])
                 // ->whereRaw('YEAR(views.created_at) = ?', [date('Y')]);
-                ->whereBetween('created_at', [$thisMonthsFirstDate, $todayDate]);
+                ->whereBetween('views.created_at', [$thisMonthsFirstDate, $todayDate]);
 
             $daysTransactions = Property::select(
                 \DB::raw('SUM(COALESCE(NULLIF(price, 0), price_lower_range, price_upper_range, 0)) AS transaction')
@@ -509,7 +509,7 @@ class PropertyController extends Controller
 
             $last30daysViews = View::select(
                 \DB::raw('COUNT(views.id) AS views')
-            )->whereBetween('created_at', [$last30daysDate, $nowdate]);
+            )->whereBetween('views.created_at', [$last30daysDate, $nowdate]);
 
             $user = Auth::guard('users')->user();
 
@@ -532,7 +532,13 @@ class PropertyController extends Controller
             $unsoldProperties = $unsoldProperties->first();
             $last30daysViews = $last30daysViews->first();
 
-            $perf = $last30daysViews->views / $unsoldProperties->unsold;
+            if (!$last30daysViews->views) {
+                $perf = 0;
+            } else if (!$unsoldProperties->unsold) {
+                $perf = 15;
+            } else {
+                $perf = $last30daysViews->views / $unsoldProperties->unsold;
+            }
 
             return response()->json(['perf' => $perf > 7.5 ? $perf > 15 ? 2 : 1 : 0], 200);
         } catch (\Exception $e) {
