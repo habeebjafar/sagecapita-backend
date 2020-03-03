@@ -1151,11 +1151,15 @@ class PropertyController extends Controller
         $is_exclusive = $request->input('is_exclusive');
         $is_exclusive && ($property->is_exclusive = $is_exclusive);
         $price = $request->input('price');
-        $price && ($property->price = $price);
         $price_lower_range = $request->input('price_lower_range');
-        $price_lower_range && ($property->price_lower_range = $price_lower_range);
         $price_upper_range = $request->input('price_upper_range');
-        $price_upper_range && ($property->price_upper_range = $price_upper_range);
+
+        if ($price) {
+            $property->price = $price;
+        } else {
+            $property->price_lower_range = $price_lower_range;
+            $property->price_upper_range = $price_upper_range;
+        }
 
         return $property;
     }
