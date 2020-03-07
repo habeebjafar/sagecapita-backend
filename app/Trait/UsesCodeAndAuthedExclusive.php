@@ -39,7 +39,12 @@ trait UsesCodeAndAuthedExclusive
                     $model->price_lower_range && ($model->price_lower_range = null);
                     $model->price_upper_range && ($model->price_upper_range = null);
 
-                    $model->photos = json_encode([\json_decode($model->photos)[0]]);
+                    $model->photos
+                        = !empty($model->photos)
+                        ? json_encode(array_slice(json_decode($model->photos), 0, 4))
+                        : '[]';
+
+                    $model->video = null;
                 }
             }
         );

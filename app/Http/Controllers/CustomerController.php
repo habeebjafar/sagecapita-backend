@@ -254,28 +254,29 @@ class CustomerController extends Controller
      */
     public function unsuspendCustomer($customerId)
     {
+        //i commented the super user authorization for unsuspend cos all users should be able approve a user registration, which translates to unsuspend 
+        // try {
+        //     self::_throwUnauthorizedException();
+
         try {
-            self::_throwUnauthorizedException();
+            $customer = Customer::findOrFail($customerId);
 
             try {
-                $customer = Customer::findOrFail($customerId);
+                $customer->suspended = null;
+                $customer->save();
 
-                try {
-                    $customer->suspended = null;
-                    $customer->save();
-
-                    return response()->json(['message' => 'customer unsuspended!'], 200);
-                } catch (\Exception $e) {
-
-                    return response()->json(['message' => 'customer unsuspension failed!'], 500);
-                }
+                return response()->json(['message' => 'customer unsuspended!'], 200);
             } catch (\Exception $e) {
 
-                return response()->json(['message' => 'customer not found!'], 404);
+                return response()->json(['message' => 'customer unsuspension failed!'], 500);
             }
-        } catch (AuthorizationException $e) {
-            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
+        } catch (\Exception $e) {
+
+            return response()->json(['message' => 'customer not found!'], 404);
         }
+        // } catch (AuthorizationException $e) {
+        //     return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
+        // }
     }
 
     /**

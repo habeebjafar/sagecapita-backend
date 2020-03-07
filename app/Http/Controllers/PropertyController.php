@@ -128,11 +128,15 @@ class PropertyController extends Controller
             }
 
             if ($orderByCol && $orderByDir) {
-                if ($orderByCol === 'price') {
-                    $properties
-                        ->orderBy('max_price', $orderByDir);
-                } else {
-                    $properties->orderBy($orderByCol, $orderByDir);
+                $orderByColToks = explode('|', $orderByCol);
+
+                foreach ($orderByColToks as $col) {
+                    if ($col === 'price') {
+                        $properties
+                            ->orderBy('max_price', $orderByDir);
+                    } else {
+                        $properties->orderBy($col, $orderByDir);
+                    }
                 }
             }
 
@@ -152,7 +156,6 @@ class PropertyController extends Controller
             if ($video) {
                 $properties->whereNotNull('video');
             }
-
 
             if ($sold) {
                 switch ($sold) {
@@ -187,7 +190,9 @@ class PropertyController extends Controller
                 $properties->where(
                     function ($query) use ($whereOrArray) {
                         foreach ($whereOrArray as $field => $fieldValue) {
-                            $query->orWhere($field, $fieldValue);
+                            //Due to clients feedback, i'm changing this to AND instead of OR
+                            // $query->orWhere($field, $fieldValue);
+                            $query->where($field, $fieldValue);
                         }
                     }
                 );
@@ -445,7 +450,13 @@ class PropertyController extends Controller
             )
                 // ->whereRaw('MONTH(views.created_at) = ?', [date('n')])
                 // ->whereRaw('YEAR(views.created_at) = ?', [date('Y')]);
-                ->whereBetween('views.created_at', [$thisMonthsFirstDate, $todayDate]);
+                ->whereBetween(
+                    'views.created_at',
+                    [
+                        $thisMonthsFirstDate . ' 00:00:00',
+                        $todayDate . ' 23:59:59'
+                    ]
+                );
 
             $daysTransactions = Property::select(
                 \DB::raw('SUM(COALESCE(NULLIF(price, 0), price_lower_range, price_upper_range, 0)) AS transaction')
@@ -454,7 +465,13 @@ class PropertyController extends Controller
                 // ->whereRaw('DAY(created_at) = ?', [date('j')])
                 // ->whereRaw('MONTH(created_at) = ?', [date('n')])
                 // ->whereRaw('YEAR(created_at) = ?', [date('Y')]);
-                ->whereBetween('sold_at', [$todayDate . ' 00:00:00', $todayDate . ' 23:59:59']);
+                ->whereBetween(
+                    'sold_at',
+                    [
+                        $todayDate . ' 00:00:00',
+                        $todayDate . ' 23:59:59'
+                    ]
+                );
 
             $user = Auth::guard('users')->user();
 
@@ -509,7 +526,13 @@ class PropertyController extends Controller
 
             $last30daysViews = View::select(
                 \DB::raw('COUNT(views.id) AS views')
-            )->whereBetween('views.created_at', [$last30daysDate, $nowdate]);
+            )->whereBetween(
+                'views.created_at',
+                [
+                    $last30daysDate . ' 00:00:00',
+                    $nowdate . ' 23:59:59'
+                ]
+            );
 
             $user = Auth::guard('users')->user();
 
@@ -652,8 +675,10 @@ class PropertyController extends Controller
     public function getViewedProperties()
     {
         $viewedProperties
-            = self::selectPropertyThumbnailFields()->whereNull('sold_at')
-            ->latest('views')->paginate(4);
+            = self::selectPropertyThumbnailFields()
+            ->whereNull('sold_at')
+            ->latest('viewed_at')
+            ->paginate(4);
 
         if ($viewedProperties) {
             return response()->json(['properties' => $viewedProperties], 200);
@@ -738,7 +763,9 @@ class PropertyController extends Controller
     {
         $exclusiveProperties
             = self::selectPropertyThumbnailFields()
-            ->whereNull('sold_at')->where('is_exclusive', '!=', null)->paginate(4);
+            ->whereNull('sold_at')
+            ->where('is_exclusive', '!=', null)
+            ->paginate(4);
 
         if ($exclusiveProperties) {
             return response()->json(['properties' => $exclusiveProperties], 200);
@@ -772,7 +799,7 @@ class PropertyController extends Controller
     public function getProperty(string $code)
     {
         $property = Property::join('users', 'properties.user_id', '=', 'users.id')
-            ->select('properties.*', 'users.first_name')
+            ->select('properties.*', 'users.first_name', 'users.last_name')
             ->find($code);
 
         if ($property) {
@@ -1074,12 +1101,15 @@ class PropertyController extends Controller
     {
         \DB::transaction(
             function () use ($property) {
+                $nowDateTime = gmdate("Y-m-d H:i:s");
+
                 $view = new View;
                 $view->property_code = $property->code;
+                $view->created_at = $nowDateTime;
                 $view->save();
 
                 $property->views += 1;
-
+                $property->viewed_at = $nowDateTime;
                 $property->save();
             }
         );
@@ -1148,8 +1178,8 @@ class PropertyController extends Controller
         $property->interior_surface = $request->input('interior_surface');
         $property->exterior_surface = $request->input('exterior_surface');
         $property->features = $request->input('features');
-        $is_exclusive = $request->input('is_exclusive');
-        $is_exclusive && ($property->is_exclusive = $is_exclusive);
+        $property->year_built = $request->input('year_built');
+        $property->is_exclusive = $request->input('is_exclusive') ?? null;
         $price = $request->input('price');
         $price_lower_range = $request->input('price_lower_range');
         $price_upper_range = $request->input('price_upper_range');

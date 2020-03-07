@@ -6,6 +6,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\User;
+use App\Helpers\UnauthorizedHelper;
 
 class UserController extends Controller
 {
@@ -28,7 +29,7 @@ class UserController extends Controller
     public function createUser(Request $request)
     {
         try {
-            self::_throwUnauthorizedException();
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
 
@@ -107,7 +108,7 @@ class UserController extends Controller
     public function singleUser($id)
     {
         try {
-            self::_throwUnauthorizedException();
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
                 $user = User::findOrFail($id);
@@ -131,7 +132,7 @@ class UserController extends Controller
     public function updateUser(Request $request, $userId)
     {
         try {
-            self::_throwUnauthorizedException();
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
 
@@ -172,7 +173,7 @@ class UserController extends Controller
     public function deleteUser($userId)
     {
         try {
-            self::_throwUnauthorizedException();
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
                 $user = User::findOrFail($userId);
@@ -202,7 +203,7 @@ class UserController extends Controller
     public function suspendUser($userId)
     {
         try {
-            self::_throwUnauthorizedException();
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
                 $user = User::findOrFail($userId);
@@ -233,7 +234,7 @@ class UserController extends Controller
     public function unsuspendUser($userId)
     {
         try {
-            self::_throwUnauthorizedException();
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
                 $user = User::findOrFail($userId);
@@ -264,7 +265,7 @@ class UserController extends Controller
     public function changeUserPassword(Request $request, $userId)
     {
         try {
-            self::_throwUnauthorizedException();
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
                 $user = User::findOrFail($userId);
@@ -428,14 +429,14 @@ class UserController extends Controller
         );
     }
 
-    private function _throwUnauthorizedException()
-    {
-        $user = Auth::guard('users')->user();
+    // private function _throwUnauthorizedException()
+    // {
+    //     $user = Auth::guard('users')->user();
 
-        if ($user->perms !== 0) {
-            throw new AuthorizationException();
-        }
-    }
+    //     if ($user->perms !== 0) {
+    //         throw new AuthorizationException();
+    //     }
+    // }
 
     /**
      * Get IP Address.

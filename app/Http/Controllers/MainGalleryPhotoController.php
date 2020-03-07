@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\MainGalleryPhoto;
+use Illuminate\Auth\Access\AuthorizationException;
+use App\Helpers\UnauthorizedHelper;
 
 class MainGalleryPhotoController extends Controller
 {
@@ -25,23 +27,29 @@ class MainGalleryPhotoController extends Controller
     public function createMainGalleryPhoto(Request $request)
     {
         try {
-            //validate incoming request 
-            self::_mainGalleryPhotoValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                // $mainGalleryPhoto = MainGalleryPhoto::create($request->all());
-                $mainGalleryPhoto = self::_assembleMainGalleryPhoto($request);
+                //validate incoming request 
+                self::_mainGalleryPhotoValidation($request);
 
-                $mainGalleryPhoto->save();
+                try {
+                    // $mainGalleryPhoto = MainGalleryPhoto::create($request->all());
+                    $mainGalleryPhoto = self::_assembleMainGalleryPhoto($request);
 
-                //return successful response
-                return response()->json(['main_gallery_photo' => $mainGalleryPhoto, 'message' => 'CREATED'], 201);
+                    $mainGalleryPhoto->save();
+
+                    //return successful response
+                    return response()->json(['main_gallery_photo' => $mainGalleryPhoto, 'message' => 'CREATED'], 201);
+                } catch (\Exception $e) {
+                    //return error message
+                    return response()->json(['message' => 'Main gallery Creation Failed!'], 500);
+                }
             } catch (\Exception $e) {
-                //return error message
-                return response()->json(['message' => 'Main gallery Creation Failed!'], 500);
+                return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the main gallery data'], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the main gallery data'], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -86,26 +94,32 @@ class MainGalleryPhotoController extends Controller
     public function updateMainGalleryPhoto(Request $request)
     {
         try {
-            self::_mainGalleryPhotoValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
-            $mainGalleryPhoto = MainGalleryPhoto::first();
+            try {
+                self::_mainGalleryPhotoValidation($request);
 
-            if ($mainGalleryPhoto) {
-                try {
-                    $mainGalleryPhoto
-                        = self::_assembleMainGalleryPhoto($request, $mainGalleryPhoto);
+                $mainGalleryPhoto = MainGalleryPhoto::first();
 
-                    $mainGalleryPhoto->save();
+                if ($mainGalleryPhoto) {
+                    try {
+                        $mainGalleryPhoto
+                            = self::_assembleMainGalleryPhoto($request, $mainGalleryPhoto);
 
-                    return response()->json(['main_gallery_photo' => $mainGalleryPhoto], 200);
-                } catch (\Exception $e) {
-                    return response()->json(['message' => 'Main gallery photo update failed!'], 500);
+                        $mainGalleryPhoto->save();
+
+                        return response()->json(['main_gallery_photo' => $mainGalleryPhoto], 200);
+                    } catch (\Exception $e) {
+                        return response()->json(['message' => 'Main gallery photo update failed!'], 500);
+                    }
+                } else {
+                    return response()->json(['message' => 'Main gallery photo not found!'], 404);
                 }
-            } else {
-                return response()->json(['message' => 'Main gallery photo not found!'], 404);
+            } catch (\Exception $e) {
+                return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the Home carousel data'], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the Home carousel data'], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -116,23 +130,29 @@ class MainGalleryPhotoController extends Controller
      */
     public function deleteProperty(Request $request)
     {
-        $propertyCode = $request->input('property_code');
+        try {
+            UnauthorizedHelper::throwUnauthorizedException();
 
-        $mainGalleryPhoto
-            = MainGalleryPhoto::where('property_code', $propertyCode)
-            ->first();
+            $propertyCode = $request->input('property_code');
 
-        if ($mainGalleryPhoto) {
-            try {
-                $mainGalleryPhoto->delete();
+            $mainGalleryPhoto
+                = MainGalleryPhoto::where('property_code', $propertyCode)
+                ->first();
 
-                return response()->json(['message' => 'home carousel deleted!'], 200);
-            } catch (\Exception $e) {
+            if ($mainGalleryPhoto) {
+                try {
+                    $mainGalleryPhoto->delete();
 
-                return response()->json(['message' => 'home carousel deletion failed!'], 500);
+                    return response()->json(['message' => 'home carousel deleted!'], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'home carousel deletion failed!'], 500);
+                }
+            } else {
+                return response()->json(['message' => 'home carousel not found!'], 404);
             }
-        } else {
-            return response()->json(['message' => 'home carousel not found!'], 404);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 

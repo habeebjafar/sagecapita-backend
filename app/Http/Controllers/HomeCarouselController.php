@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\HomeCarousel;
+use Illuminate\Auth\Access\AuthorizationException;
+use App\Helpers\UnauthorizedHelper;
 
 class HomeCarouselController extends Controller
 {
@@ -25,23 +27,29 @@ class HomeCarouselController extends Controller
     public function createHomeCarousel(Request $request)
     {
         try {
-            //validate incoming request 
-            self::_homeCarouselValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                // $homeCarousel = HomeCarousel::create($request->all());
-                $homeCarousel = self::_assembleHomeCarousel($request);
+                //validate incoming request 
+                self::_homeCarouselValidation($request);
 
-                $homeCarousel->save();
+                try {
+                    // $homeCarousel = HomeCarousel::create($request->all());
+                    $homeCarousel = self::_assembleHomeCarousel($request);
 
-                //return successful response
-                return response()->json(['home_carousel' => $homeCarousel, 'message' => 'CREATED'], 201);
+                    $homeCarousel->save();
+
+                    //return successful response
+                    return response()->json(['home_carousel' => $homeCarousel, 'message' => 'CREATED'], 201);
+                } catch (\Exception $e) {
+                    //return error message
+                    return response()->json(['message' => 'Home carousel Creation Failed!'], 500);
+                }
             } catch (\Exception $e) {
-                //return error message
-                return response()->json(['message' => 'Home carousel Creation Failed!'], 500);
+                return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the home carousel data'], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the home carousel data'], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -79,26 +87,32 @@ class HomeCarouselController extends Controller
     public function updateHomeCarousel(int $id, Request $request)
     {
         try {
-            self::_homeCarouselValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                $homeCarousel = HomeCarousel::findOrFail($id);
+                self::_homeCarouselValidation($request);
 
                 try {
-                    $homeCarousel = self::_assembleHomeCarousel($request, $homeCarousel);
+                    $homeCarousel = HomeCarousel::findOrFail($id);
 
-                    $homeCarousel->save();
+                    try {
+                        $homeCarousel = self::_assembleHomeCarousel($request, $homeCarousel);
 
-                    return response()->json(['home_carousel' => $homeCarousel], 200);
+                        $homeCarousel->save();
+
+                        return response()->json(['home_carousel' => $homeCarousel], 200);
+                    } catch (\Exception $e) {
+
+                        return response()->json(['message' => 'Home carousel update failed!'], 500);
+                    }
                 } catch (\Exception $e) {
-
-                    return response()->json(['message' => 'Home carousel update failed!'], 500);
+                    return response()->json(['message' => 'Home carousel not found!'], 404);
                 }
             } catch (\Exception $e) {
-                return response()->json(['message' => 'Home carousel not found!'], 404);
+                return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the Home carousel data'], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the Home carousel data'], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -109,21 +123,27 @@ class HomeCarouselController extends Controller
      */
     public function deleteProperty(Request $request)
     {
-        $propertyCode = $request->input('property_code');
+        try {
+            UnauthorizedHelper::throwUnauthorizedException();
 
-        $homeCarousel = HomeCarousel::where('property_code', $propertyCode)->first();
+            $propertyCode = $request->input('property_code');
 
-        if ($homeCarousel) {
-            try {
-                $homeCarousel->delete();
+            $homeCarousel = HomeCarousel::where('property_code', $propertyCode)->first();
 
-                return response()->json(['message' => 'home carousel deleted!'], 200);
-            } catch (\Exception $e) {
+            if ($homeCarousel) {
+                try {
+                    $homeCarousel->delete();
 
-                return response()->json(['message' => 'home carousel deletion failed!'], 500);
+                    return response()->json(['message' => 'home carousel deleted!'], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'home carousel deletion failed!'], 500);
+                }
+            } else {
+                return response()->json(['message' => 'home carousel not found!'], 404);
             }
-        } else {
-            return response()->json(['message' => 'home carousel not found!'], 404);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 

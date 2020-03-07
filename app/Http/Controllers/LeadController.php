@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Lead;
 use App\Message;
 use App\Property;
+use Illuminate\Auth\Access\AuthorizationException;
+use App\Helpers\UnauthorizedHelper;
 
 class LeadController extends Controller
 {
@@ -101,6 +103,9 @@ class LeadController extends Controller
      */
     public function getLeads(Request $request)
     {
+        // try {
+        //     UnauthorizedHelper::throwUnauthorizedException();
+
         // $this->middleware('auth');
         // TODO: use the query string to select the search criteria, result length, result page
 
@@ -121,17 +126,34 @@ class LeadController extends Controller
         if ($user->perms !== 0) {
             $agentId = $user->id;
 
-            $leads
-                ->join(
-                    'properties',
-                    function ($join) use ($agentId) {
-                        $join->on(\DB::raw('(SELECT property_code FROM messages WHERE lead_id = leads.id LIMIT 1)'), '=', 'properties.code')
-                            ->where('properties.user_id', $agentId);
-                    }
-                );
+            // $leads
+            //     ->join(
+            //         'properties',
+            //         function ($join) use ($agentId) {
+            //             $join->on(\DB::raw('(SELECT property_code FROM messages WHERE lead_id = leads.id AND property_code IS NOT NULL LIMIT 1)'), '=', 'properties.code')
+            //                 ->where('properties.user_id', $agentId);
+            //         }
+            //     );
+
+            $leads->whereRaw(
+                '
+            (
+                SELECT user_id FROM properties WHERE properties.code = 
+                   (
+                       SELECT property_code FROM messages WHERE lead_id = leads.id 
+                       AND property_code IS NOT NULL 
+                       LIMIT 1
+                    ) 
+                LIMIT 1
+               ) = ' . $agentId . '
+            '
+            );
         }
 
         return response()->json(['leads' => $leads->paginate($perPage)], 200);
+        // } catch (AuthorizationException $e) {
+        //     return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
+        // }
     }
 
     /**
@@ -179,7 +201,27 @@ class LeadController extends Controller
         $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
 
         if ($lead) {
-            return response()->json(['lead' => $lead], 200);
+            try {
+                UnauthorizedHelper::throwUnauthorizedException();
+
+                return response()->json(['lead' => $lead], 200);
+            } catch (AuthorizationException $e) {
+                $leadProperty = Property::select('user_id')
+                    ->withTrashed()
+                    ->whereRaw(
+                        '(
+                            SELECT property_code FROM messages WHERE lead_id = ' . $lead->id . ' 
+                            AND property_code IS NOT NULL LIMIT 1
+                        ) = code'
+                    )
+                    ->first();
+
+                if ($leadProperty->user_id === Auth::guard('users')->user()->id) {
+                    return response()->json(['lead' => $lead], 200);
+                } else {
+                    return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
+                }
+            }
         } else {
             return response()->json(['message' => 'lead not found!'], 404);
         }
@@ -194,27 +236,33 @@ class LeadController extends Controller
     public function updateLead(Request $request)
     {
         try {
-            //validate incoming request 
-            self::_updateLeadValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
-            $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
+            try {
+                //validate incoming request 
+                self::_updateLeadValidation($request);
 
-            if ($lead) {
-                try {
-                    $lead = self::_assembleLead($request, $lead);
+                $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
 
-                    $lead->save();
+                if ($lead) {
+                    try {
+                        $lead = self::_assembleLead($request, $lead);
 
-                    return response()->json(['property' => $lead], 200);
-                } catch (\Exception $e) {
+                        $lead->save();
 
-                    return response()->json(['message' => 'lead update failed!'], 500);
+                        return response()->json(['property' => $lead], 200);
+                    } catch (\Exception $e) {
+
+                        return response()->json(['message' => 'lead update failed!'], 500);
+                    }
+                } else {
+                    return response()->json(['message' => 'lead not found!'], 404);
                 }
-            } else {
-                return response()->json(['message' => 'lead not found!'], 404);
+            } catch (\Exception $e) {
+                return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the lead data'], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the lead data'], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -225,19 +273,25 @@ class LeadController extends Controller
      */
     public function deleteLead(Request $request)
     {
-        $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
+        try {
+            UnauthorizedHelper::throwUnauthorizedException();
 
-        if ($lead) {
-            try {
-                $lead->delete();
+            $lead = self::_getLeadByEmailPhoneAndCountry($request)->first();
 
-                return response()->json(['message' => 'lead deleted!'], 200);
-            } catch (\Exception $e) {
+            if ($lead) {
+                try {
+                    $lead->delete();
 
-                return response()->json(['message' => 'lead deletion failed!'], 500);
+                    return response()->json(['message' => 'lead deleted!'], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'lead deletion failed!'], 500);
+                }
+            } else {
+                return response()->json(['message' => 'lead not found!'], 404);
             }
-        } else {
-            return response()->json(['message' => 'lead not found!'], 404);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 

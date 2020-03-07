@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use App\Message;
+use Illuminate\Auth\Access\AuthorizationException;
+use App\Helpers\UnauthorizedHelper;
 
 class MessageController extends Controller
 {
@@ -76,10 +78,18 @@ class MessageController extends Controller
         try {
             $message = Message::join('leads', 'messages.lead_id', '=', 'leads.id')
                 ->join('properties', 'messages.property_code', '=', 'properties.code')
-                ->select('messages.code AS message_code', 'messages.message', 'messages.is_done', 'properties.is_exclusive', 'properties.code AS property_code', 'properties.main_title', 'properties.country AS property_country', 'leads.first_name', 'leads.last_name', 'leads.email', 'leads.phone', 'leads.country AS lead_country')
-                ->findOrFail($code);
+                ->select('messages.code AS message_code', 'messages.message', 'messages.is_done', 'properties.is_exclusive', 'properties.code AS property_code', 'properties.main_title', 'properties.country AS property_country', 'leads.first_name', 'leads.last_name', 'leads.email', 'leads.phone', 'leads.country AS lead_country');
 
-            return response()->json(['message' => $message], 200);
+            $user = Auth::guard('users')->user();
+
+            if ($user->perms !== 0) {
+                $agentId = $user->id;
+
+                $message
+                    ->where('user_id', $agentId);
+            }
+
+            return response()->json(['message' => $message->findOrFail($code)], 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'message not found!'], 404);
         }
@@ -94,9 +104,11 @@ class MessageController extends Controller
     {
         $messages
             = Message::select(\DB::raw('count(id) AS count'))
-            ->where('is_done', 0)
-            ->orWhereNull('is_done')
-            ->first();
+            ->whereRaw('(is_done = 0 OR is_done IS NULL)');
+
+            self::_adminOrAddAgentClause($messages);
+
+            $messages = $messages->first();
 
         if ($messages) {
             return response()->json(['pending_count' => $messages->count], 200);
@@ -115,7 +127,11 @@ class MessageController extends Controller
     public function markAsPending($code)
     {
         try {
-            $message = Message::findOrFail($code);
+            $message = new Message;
+
+            self::_adminOrAddAgentClause($message);
+
+            $message = $message->findOrFail($code);
 
             try {
                 $message->is_done = false;
@@ -143,7 +159,11 @@ class MessageController extends Controller
     public function markAsDone($code)
     {
         try {
-            $message = Message::findOrFail($code);
+            $message = new Message;
+
+            self::_adminOrAddAgentClause($message);
+
+            $message = $message->findOrFail($code);
 
             try {
                 $message->is_done = true;
@@ -169,19 +189,44 @@ class MessageController extends Controller
     public function deleteMessage($code)
     {
         try {
-            $message = Message::findOrFail($code);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                $message->delete();
+                $message = Message::findOrFail($code);
 
-                return response()->json(['message' => 'message deleted!'], 200);
+                try {
+                    $message->delete();
+
+                    return response()->json(['message' => 'message deleted!'], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'message deletion failed!'], 500);
+                }
             } catch (\Exception $e) {
 
-                return response()->json(['message' => 'message deletion failed!'], 500);
+                return response()->json(['message' => 'message not found!'], 404);
             }
-        } catch (\Exception $e) {
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
+        }
+    }
 
-            return response()->json(['message' => 'message not found!'], 404);
+    private function _adminOrAddAgentClause(&$message)
+    {
+        $user = Auth::guard('users')->user();
+
+        if ($user->perms !== 0) {
+            $agentId = $user->id;
+
+            $message = $message
+                ->whereRaw(
+                    '
+                    (
+                        SELECT user_id FROM properties 
+                        WHERE code = messages.property_code 
+                    ) = ' . $agentId . '
+                    '
+                );
         }
     }
 

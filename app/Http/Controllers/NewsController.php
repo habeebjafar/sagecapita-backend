@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\News;
+use Illuminate\Auth\Access\AuthorizationException;
+use App\Helpers\UnauthorizedHelper;
 
 class NewsController extends Controller
 {
@@ -26,19 +28,24 @@ class NewsController extends Controller
     public function createNews(Request $request)
     {
         try {
-
-            self::_createNewsValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                $news = self::_assembleCreateNews($request);
-                $news->save();
+                self::_createNewsValidation($request);
 
-                return response()->json(['news' => $news, 'message' => 'CREATED'], 201);
+                try {
+                    $news = self::_assembleCreateNews($request);
+                    $news->save();
+
+                    return response()->json(['news' => $news, 'message' => 'CREATED'], 201);
+                } catch (\Exception $e) {
+                    return response()->json(['message' => 'News Creation Failed!'], 500);
+                }
             } catch (\Exception $e) {
-                return response()->json(['message' => 'News Creation Failed!'], 500);
+                return response()->json(['result' => ['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the news data']], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['result' => ['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the news data']], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -81,12 +88,18 @@ class NewsController extends Controller
     public function getNews($id)
     {
         try {
-            $news = News::findOrFail($id);
+            UnauthorizedHelper::throwUnauthorizedException();
 
-            return response()->json(['news' => $news], 200);
-        } catch (\Exception $e) {
+            try {
+                $news = News::findOrFail($id);
 
-            return response()->json(['news' => 'news not found!'], 404);
+                return response()->json(['news' => $news], 200);
+            } catch (\Exception $e) {
+
+                return response()->json(['news' => 'news not found!'], 404);
+            }
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -142,26 +155,31 @@ class NewsController extends Controller
     public function updateNews(Request $request, $newsId)
     {
         try {
-
-            self::_updateNewsValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                $news = News::findOrFail($newsId);
+                self::_updateNewsValidation($request);
 
                 try {
-                    $news = self::_assembleUpdateNews($request, $news);
-                    $news->save();
+                    $news = News::findOrFail($newsId);
 
-                    return response()->json(['news' => $news, 'message' => 'UPDATED'], 200);
+                    try {
+                        $news = self::_assembleUpdateNews($request, $news);
+                        $news->save();
+
+                        return response()->json(['news' => $news, 'message' => 'UPDATED'], 200);
+                    } catch (\Exception $e) {
+                        return response()->json(['message' => 'News Update Failed!'], 500);
+                    }
                 } catch (\Exception $e) {
-                    return response()->json(['message' => 'News Update Failed!'], 500);
+
+                    return response()->json(['message' => 'news not found!'], 404);
                 }
             } catch (\Exception $e) {
-
-                return response()->json(['message' => 'news not found!'], 404);
+                return response()->json(['result' => ['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the news data']], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['result' => ['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the news data']], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -173,19 +191,25 @@ class NewsController extends Controller
     public function deleteNews($newsId)
     {
         try {
-            $news = News::findOrFail($newsId);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                $news->delete();
+                $news = News::findOrFail($newsId);
 
-                return response()->json(['message' => 'news deleted!'], 200);
+                try {
+                    $news->delete();
+
+                    return response()->json(['message' => 'news deleted!'], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'news deletion failed!'], 500);
+                }
             } catch (\Exception $e) {
 
-                return response()->json(['message' => 'news deletion failed!'], 500);
+                return response()->json(['message' => 'news not found!'], 404);
             }
-        } catch (\Exception $e) {
-
-            return response()->json(['message' => 'news not found!'], 404);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -274,5 +298,4 @@ class NewsController extends Controller
             ]
         );
     }
-
 }

@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Collection;
 use App\PropertyGroup;
 use App\Property;
+use Illuminate\Auth\Access\AuthorizationException;
+use App\Helpers\UnauthorizedHelper;
 
 class PropertyGroupController extends Controller
 {
@@ -30,37 +32,43 @@ class PropertyGroupController extends Controller
     public function createPropertyGroup(Request $request)
     {
         try {
-            //validate incoming request 
-            self::_addPropertyGroupValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
             try {
-                $propertyGroup = self::_assembleAddPropertyGroup($request);
+                //validate incoming request 
+                self::_addPropertyGroupValidation($request);
 
-                $propertyGroup->save();
-
-                //return successful response
-                return response()->json(['property_group' => $propertyGroup, 'message' => 'CREATED'], 201);
-            } catch (\Exception $e) {
                 try {
-                    if ($e->getCode() === '23000') {
-                        $propertyGroup = PropertyGroup::withTrashed()
-                            ->where('name', $propertyGroup->name)
-                            ->where('class', $propertyGroup->class)
-                            ->first();
+                    $propertyGroup = self::_assembleAddPropertyGroup($request);
 
-                        self::_restoreIfTrashed($propertyGroup);
+                    $propertyGroup->save();
 
-                        return response()->json(['property_group' => $propertyGroup, 'message' => 'UPDATED'], 200);
-                    }
-
-                    throw new \Exception($e->getMessage(), $e->getCode());
+                    //return successful response
+                    return response()->json(['property_group' => $propertyGroup, 'message' => 'CREATED'], 201);
                 } catch (\Exception $e) {
-                    //return error message
-                    return response()->json(['message' => 'Property group Creation Failed!'], 500);
+                    try {
+                        if ($e->getCode() === '23000') {
+                            $propertyGroup = PropertyGroup::withTrashed()
+                                ->where('name', $propertyGroup->name)
+                                ->where('class', $propertyGroup->class)
+                                ->first();
+
+                            self::_restoreIfTrashed($propertyGroup);
+
+                            return response()->json(['property_group' => $propertyGroup, 'message' => 'UPDATED'], 200);
+                        }
+
+                        throw new \Exception($e->getMessage(), $e->getCode());
+                    } catch (\Exception $e) {
+                        //return error message
+                        return response()->json(['message' => 'Property group Creation Failed!'], 500);
+                    }
                 }
+            } catch (\Exception $e) {
+                return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property group data'], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the property group data'], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -139,32 +147,38 @@ class PropertyGroupController extends Controller
     public function updatePropertyGroup(Request $request)
     {
         try {
-            self::_updatePropertyGroupValidation($request);
+            UnauthorizedHelper::throwUnauthorizedException();
 
-            $name = $request->input('_name') ?? $request->input('name');
-            $class = $request->input('_class') ?? $request->input('class');
+            try {
+                self::_updatePropertyGroupValidation($request);
 
-            $propertyGroup = PropertyGroup::where('name', $name)
-                ->where('class', $class)
-                ->first();
+                $name = $request->input('_name') ?? $request->input('name');
+                $class = $request->input('_class') ?? $request->input('class');
 
-            if ($propertyGroup) {
-                try {
-                    $propertyGroup
-                        = self::_assembleUpdatePropertyGroup($request, $propertyGroup);
+                $propertyGroup = PropertyGroup::where('name', $name)
+                    ->where('class', $class)
+                    ->first();
 
-                    $propertyGroup->save();
+                if ($propertyGroup) {
+                    try {
+                        $propertyGroup
+                            = self::_assembleUpdatePropertyGroup($request, $propertyGroup);
 
-                    return response()->json(['property_group' => $propertyGroup], 200);
-                } catch (\Exception $e) {
+                        $propertyGroup->save();
 
-                    return response()->json(['message' => 'property group update failed!'], 500);
+                        return response()->json(['property_group' => $propertyGroup], 200);
+                    } catch (\Exception $e) {
+
+                        return response()->json(['message' => 'property group update failed!'], 500);
+                    }
+                } else {
+                    return response()->json(['message' => 'property group not found!'], 404);
                 }
-            } else {
-                return response()->json(['message' => 'property group not found!'], 404);
+            } catch (\Exception $e) {
+                return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the propertyGroup data'], 400);
             }
-        } catch (\Exception $e) {
-            return response()->json(['errors' => $e->getMessage(), 'message' => 'There\'s a problem with the propertyGroup data'], 400);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 
@@ -175,24 +189,30 @@ class PropertyGroupController extends Controller
      */
     public function deletePropertyGroup(Request $request)
     {
-        $name = $request->input('name');
-        $class = $request->input('class');
+        try {
+            UnauthorizedHelper::throwUnauthorizedException();
 
-        $propertyGroup = PropertyGroup::where('name', $name)
-            ->where('class', $class)
-            ->first();
+            $name = $request->input('name');
+            $class = $request->input('class');
 
-        if ($propertyGroup) {
-            try {
-                $propertyGroup->delete();
+            $propertyGroup = PropertyGroup::where('name', $name)
+                ->where('class', $class)
+                ->first();
 
-                return response()->json(['message' => 'property group deleted!'], 200);
-            } catch (\Exception $e) {
+            if ($propertyGroup) {
+                try {
+                    $propertyGroup->delete();
 
-                return response()->json(['message' => 'property group deletion failed!'], 500);
+                    return response()->json(['message' => 'property group deleted!'], 200);
+                } catch (\Exception $e) {
+
+                    return response()->json(['message' => 'property group deletion failed!'], 500);
+                }
+            } else {
+                return response()->json(['message' => 'property group not found!'], 404);
             }
-        } else {
-            return response()->json(['message' => 'property group not found!'], 404);
+        } catch (AuthorizationException $e) {
+            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
         }
     }
 

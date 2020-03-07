@@ -36,6 +36,7 @@ class Joinus extends Mailable
     public function build()
     {
         return $this->view('mails.joinus')
+            ->from('jobs@sagecapita.com')
             // ->text('mails.joinus_plain')
             // ->with(
             //     [
