@@ -45,13 +45,13 @@ class MessageController extends Controller
         $MAX_MESSAGE_LENGTH = 60;
 
         $messages = Message::join('leads', 'messages.lead_id', '=', 'leads.id')
-            ->join('properties', 'messages.property_code', '=', 'properties.code')
+            ->leftJoin('properties', 'messages.property_code', '=', 'properties.code')
             ->select('messages.code', \DB::raw('(select case when length(messages.message) > ' . $MAX_MESSAGE_LENGTH . ' then concat(substring(messages.message, 1, ' . $MAX_MESSAGE_LENGTH . '), \'...\') else messages.message end) as message'), 'messages.created_at', 'properties.is_exclusive', 'leads.first_name', 'leads.last_name')
             ->orderBy('messages.id', 'DESC');
 
         if ($nameContains) {
             $messages->whereRaw(
-                "MATCH(leads.first_name,leads.last_name) AGAINST(? IN BOOLEAN MODE)",
+                "MATCH(leads.first_name, leads.last_name) AGAINST(? IN BOOLEAN MODE)",
                 [$nameContains . '*']
             );
         }
@@ -77,7 +77,7 @@ class MessageController extends Controller
     {
         try {
             $message = Message::join('leads', 'messages.lead_id', '=', 'leads.id')
-                ->join('properties', 'messages.property_code', '=', 'properties.code')
+                ->leftJoin('properties', 'messages.property_code', '=', 'properties.code')
                 ->select('messages.code AS message_code', 'messages.message', 'messages.is_done', 'properties.is_exclusive', 'properties.code AS property_code', 'properties.main_title', 'properties.country AS property_country', 'leads.first_name', 'leads.last_name', 'leads.email', 'leads.phone', 'leads.country AS lead_country');
 
             $user = Auth::guard('users')->user();

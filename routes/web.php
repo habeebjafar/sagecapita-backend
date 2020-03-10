@@ -28,7 +28,7 @@ $router->group(
         // Matches "/api/user_login
         $router->post('user_login', 'AuthUserController@login');
 
-        // Matches "/api/profile
+        // Matches "/api/user_profile
         $router->get('user_profile', 'UserController@profile');
 
         // Matches "/api/users
@@ -504,6 +504,15 @@ $router->group(
             [
                 'middleware' => 'auth',
                 'uses' => 'MessageController@markAsDone'
+            ]
+        );
+
+        // Matches "/api/message/1
+        $router->delete(
+            'message/{code}',
+            [
+                'middleware' => 'auth',
+                'uses' => 'MessageController@deleteMessage'
             ]
         );
 

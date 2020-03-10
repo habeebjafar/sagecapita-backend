@@ -318,6 +318,8 @@ class UserController extends Controller
     private function _assembleCreateUser(Request $request, User $user = null)
     {
         $user || ($user = new User);
+        $photo = $request->input('photo');
+        $photo && ($user->photo = $photo);
         $user->first_name = $request->input('first_name');
         $user->last_name = $request->input('last_name');
         $user->email = $request->input('email');
@@ -363,6 +365,8 @@ class UserController extends Controller
     private function _assembleUpdateUser(Request $request, User $user = null)
     {
         $user || ($user = new User);
+        $photo = $request->input('photo');
+        $photo && ($user->photo = $photo);
         $user->first_name = $request->input('first_name');
         $user->last_name = $request->input('last_name');
         $user->email = $request->input('email');
@@ -386,6 +390,7 @@ class UserController extends Controller
         $validator = $this->validate(
             $request,
             [
+                'photo' => 'string|max:100',
                 'first_name' => 'required|string|max:50',
                 'last_name' => 'required|string|max:60',
                 'email' => 'required|email|unique:users',
@@ -420,6 +425,7 @@ class UserController extends Controller
         $validator = $this->validate(
             $request,
             [
+                'photo' => 'string|max:100',
                 'first_name' => 'required|string|max:50',
                 'last_name' => 'required|string|max:60',
                 'email' => 'required|email',

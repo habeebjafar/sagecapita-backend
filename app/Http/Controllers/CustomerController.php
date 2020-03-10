@@ -83,17 +83,18 @@ class CustomerController extends Controller
      */
     public function suspendedCustomersCount()
     {
-        try {
-            self::_throwUnauthorizedException();
+        //i commented the super user authorization for unsuspend cos all users should be able approve a user registration, which translates to unsuspend 
+        // try {
+        //     self::_throwUnauthorizedException();
 
-            $customerModel = Customer::select(\DB::raw('COUNT(id) AS count'))
-                ->where('suspended', true)
-                ->first();
+        $customerModel = Customer::select(\DB::raw('COUNT(id) AS count'))
+            ->where('suspended', true)
+            ->first();
 
-            return response()->json(['count' =>  $customerModel ? $customerModel->count : 0], 200);
-        } catch (AuthorizationException $e) {
-            return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
-        }
+        return response()->json(['count' =>  $customerModel ? $customerModel->count : 0], 200);
+        // } catch (AuthorizationException $e) {
+        //     return response()->json(['message' => 'Contact the super admin to take this action!'], 401);
+        // }
     }
 
     /**
@@ -340,6 +341,8 @@ class CustomerController extends Controller
     private function _assembleCreateCustomer(Request $request, Customer $customer = null)
     {
         $customer || ($customer = new Customer);
+        $photo = $request->input('photo');
+        $photo && ($customer->photo = $photo);
         $customer->first_name = $request->input('first_name');
         $customer->last_name = $request->input('last_name');
         $customer->email = $request->input('email');
@@ -385,6 +388,8 @@ class CustomerController extends Controller
     private function _assembleUpdateCustomer(Request $request, Customer $customer = null)
     {
         $customer || ($customer = new Customer);
+        $photo = $request->input('photo');
+        $photo && ($customer->photo = $photo);
         $customer->first_name = $request->input('first_name');
         $customer->last_name = $request->input('last_name');
         $customer->email = $request->input('email');
@@ -408,6 +413,7 @@ class CustomerController extends Controller
         $validator = $this->validate(
             $request,
             [
+                'photo' => 'string|max:100',
                 'first_name' => 'required|string|max:50',
                 'last_name' => 'required|string|max:60',
                 'email' => 'required|email|unique:customers',
@@ -442,6 +448,7 @@ class CustomerController extends Controller
         $validator = $this->validate(
             $request,
             [
+                'photo' => 'string|max:100',
                 'first_name' => 'required|string|max:50',
                 'last_name' => 'required|string|max:60',
                 'email' => 'required|email',
