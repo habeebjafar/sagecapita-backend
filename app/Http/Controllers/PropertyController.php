@@ -705,6 +705,23 @@ class PropertyController extends Controller
     }
 
     /**
+     * Get top suburbs
+     *
+     * @param  Request  $request
+     * @return Response
+     */
+    public function getTopSuburbs(Request $request)
+    {
+        $paginatedTopStates = self::topPropertiesPagination('suburb', 6, 'top_suburbs');
+
+        if ($paginatedTopStates) {
+            return response()->json(['property_groups' => $paginatedTopStates], 200);
+        } else {
+            return response()->json(['message' => 'Property not found'], 404);
+        }
+    }
+
+    /**
      * Get top cities
      *
      * @param  Request  $request
@@ -1076,25 +1093,38 @@ class PropertyController extends Controller
             }
         );
 
-        $getPhotos = PropertyGroup::select('photo')
+        $getPhotos = PropertyGroup::select('photo', 'name')
             ->where('class', $column)
             ->whereIn('name', $slicedTopPropertiesName->toArray());
 
-        if ($getPhotos->count() === $slicedTopPropertiesName->count()) {
-            $getPhotosArray = $getPhotos->get()->toArray();
-            $slicedTopPropertiesArray = $slicedTopProperties->toArray();
+        // if ($getPhotos->count() === $slicedTopPropertiesName->count()) {
+        $getPhotosArray = $getPhotos->get()->toArray();
+        $slicedTopPropertiesArray = $slicedTopProperties->toArray();
 
-            $slicedTopPropertiesPhotoAdded = [];
+        $getPhotosAssoc
+            = array_combine(
+                array_column($getPhotosArray, 'name'),
+                array_column($getPhotosArray, 'photo')
+            );
 
-            foreach ($slicedTopPropertiesArray as $key => $value) {
-                $slicedTopPropertiesPhotoAdded[$key]
-                    = array_merge($value, $getPhotosArray[$key]);
-            }
+        $slicedTopPropertiesPhotoAdded = [];
 
-            return new LengthAwarePaginator($slicedTopPropertiesPhotoAdded, $topProperties->count(), $perPage, $page, $options);
-        } else {
-            throw new \Exception('Some property classes do not exist in the property groups table');
+        foreach ($slicedTopPropertiesArray as $key => $value) {
+            $slicedTopPropertiesPhotoAdded[$key]
+                = array_merge(
+                    $value,
+                    [
+                        'photo' => isset($getPhotosAssoc[$value['name']])
+                            ? $getPhotosAssoc[$value['name']]
+                            : null
+                    ]
+                );
         }
+
+        return new LengthAwarePaginator($slicedTopPropertiesPhotoAdded, $topProperties->count(), $perPage, $page, $options);
+        // } else {
+        //     throw new \Exception('Some property classes do not exist in the property groups table');
+        // }
     }
 
     private function incrementViews(Property $property)
@@ -1179,7 +1209,8 @@ class PropertyController extends Controller
         $property->exterior_surface = $request->input('exterior_surface');
         $property->features = $request->input('features');
         $property->year_built = $request->input('year_built');
-        $property->is_exclusive = $request->input('is_exclusive') ?? null;
+        $isExclusive = $request->input('is_exclusive');
+        $property->is_exclusive = empty($isExclusive) ? null :  $isExclusive;
         $price = $request->input('price');
         $price_lower_range = $request->input('price_lower_range');
         $price_upper_range = $request->input('price_upper_range');

@@ -181,6 +181,9 @@ $router->group(
         $router->get('top_states', 'PropertyController@getTopStates');
 
         // Matches "/api/top_cities
+        $router->get('top_suburbs', 'PropertyController@getTopSuburbs');
+
+        // Matches "/api/top_cities
         $router->get('top_cities', 'PropertyController@getTopCities');
 
         // Matches "/api/latest_acquisitions

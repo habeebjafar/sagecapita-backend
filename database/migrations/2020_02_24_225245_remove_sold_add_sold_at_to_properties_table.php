@@ -15,7 +15,7 @@ class RemoveSoldAddSoldAtToPropertiesTable extends Migration
     {
         Schema::table('properties', function (Blueprint $table) {
             $table->dropColumn('sold');
-            $table->dateTime('sold_at', 0)->nullable();
+            $table->dateTime('sold_at', 0)->index()->nullable();
         });
     }
 

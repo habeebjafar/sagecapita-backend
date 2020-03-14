@@ -17,7 +17,7 @@ class CreateViewsTable extends Migration
             $table->bigIncrements('id');
             $table->string('property_code')->index()->charset('ascii');
             $table->bigInteger('customer_id')->unsigned()->nullable();
-            $table->dateTime('created_at', 0)->default(gmdate("Y-m-d H:i:s"));
+            $table->dateTime('created_at', 0)->index()->default(gmdate("Y-m-d H:i:s"));
 
             $table->foreign('property_code')
                 ->references('code')->on('properties');

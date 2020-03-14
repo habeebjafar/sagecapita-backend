@@ -14,8 +14,8 @@ class AddViewsInquiriesSoldToPropertiesTable extends Migration
     public function up()
     {
         Schema::table('properties', function (Blueprint $table) {
-            $table->bigInteger('views')->unsigned()->default(0);
-            $table->bigInteger('inquiries')->unsigned()->default(0);
+            $table->bigInteger('views')->index()->unsigned()->default(0);
+            $table->bigInteger('inquiries')->index()->unsigned()->default(0);
             $table->boolean('sold')->nullable();
         });
     }
